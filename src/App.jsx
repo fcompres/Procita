@@ -32,9 +32,15 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [modal, setModal] = useState(null)
   const [diaVista, setDiaVista] = useState('dia') // dia | semana
+  const [productos, setProductos] = useState([
+    { id: 1, nombre: 'Pomada para cabello', precio: 350, stock: 10, emoji: '🧴', descripcion: 'Fijación fuerte, acabado mate', categoria: 'Cabello' },
+    { id: 2, nombre: 'Aceite para barba', precio: 280, stock: 5, emoji: '🫙', descripcion: 'Hidrata y suaviza la barba', categoria: 'Barba' },
+  ])
+  const [pedidos, setPedidos] = useState([])
 
   // Booking flow
   const [booking, setBooking] = useState({ paso: 1, servicio: null, empleado: null, fecha: '', hora: '', nombre: '', tel: '' })
+  const [carrito, setCarrito] = useState([])
 
   useEffect(() => {
     const saved = localStorage.getItem('procita_negocio')
@@ -57,18 +63,17 @@ export default function App() {
     } catch (e) { console.log(e) }
   }
 
-  async function crearNegocio(nombre, tipo) {
+  async function crearNegocio(nombre, tipo, whatsapp) {
     setLoading(true)
     try {
-      const { data, error } = await supabase.from('negocios').insert({ nombre, tipo }).select().single()
+      const { data, error } = await supabase.from('negocios').insert({ nombre, tipo, whatsapp }).select().single()
       if (error) throw error
       const n = { ...data, tipoInfo: TIPOS.find(t => t.id === tipo) }
       localStorage.setItem('procita_negocio', JSON.stringify(n))
       setNegocio(n)
       setVista('admin')
     } catch (e) {
-      // offline fallback
-      const n = { id: Date.now(), nombre, tipo, tipoInfo: TIPOS.find(t => t.id === tipo) }
+      const n = { id: Date.now(), nombre, tipo, whatsapp, tipoInfo: TIPOS.find(t => t.id === tipo) }
       localStorage.setItem('procita_negocio', JSON.stringify(n))
       setNegocio(n)
       setVista('admin')
@@ -121,14 +126,24 @@ export default function App() {
   const hoy = new Date().toISOString().split('T')[0]
 
   if (vista === 'setup') return <Setup onCrear={crearNegocio} loading={loading} />
+  async function hacerPedido(datos) {
+    const nuevo = { ...datos, estado: 'pendiente', negocio_id: negocio.id, id: Date.now(), fecha: new Date().toISOString() }
+    setPedidos(prev => [...prev, nuevo])
+    try { await supabase.from('pedidos').insert(nuevo) } catch {}
+  }
+
   if (vista === 'cliente') return (
     <ClienteView
       negocio={negocio}
       servicios={servicios}
       empleados={empleados}
+      productos={productos}
       booking={booking}
       setBooking={setBooking}
+      carrito={carrito}
+      setCarrito={setCarrito}
       onAgendar={agendarCita}
+      onPedido={hacerPedido}
       onVolver={() => setVista('admin')}
       tipoInfo={tipoInfo}
     />
@@ -157,6 +172,8 @@ export default function App() {
           { id: 'empleados', label: '👥 Equipo' },
           { id: 'agenda', label: '📅 Agenda' },
           { id: 'servicios', label: '📋 Servicios' },
+          { id: 'tienda', label: '🛍️ Tienda' },
+          { id: 'pedidos', label: '📦 Pedidos' },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
             padding: '12px 16px', background: 'none', border: 'none', color: tab === t.id ? tipoInfo.color : 'var(--muted)',
@@ -176,6 +193,12 @@ export default function App() {
         {tab === 'servicios' && (
           <ServiciosTab servicios={servicios} setServicios={setServicios} tipoInfo={tipoInfo} />
         )}
+        {tab === 'tienda' && (
+          <TiendaAdminTab productos={productos} setProductos={setProductos} tipoInfo={tipoInfo} />
+        )}
+        {tab === 'pedidos' && (
+          <PedidosTab pedidos={pedidos} setPedidos={setPedidos} tipoInfo={tipoInfo} />
+        )}
       </main>
     </div>
   )
@@ -185,6 +208,7 @@ export default function App() {
 function Setup({ onCrear, loading }) {
   const [nombre, setNombre] = useState('')
   const [tipo, setTipo] = useState('')
+  const [whatsapp, setWhatsapp] = useState('')
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--bg)' }}>
       <div style={{ marginBottom: 32, textAlign: 'center' }}>
@@ -194,7 +218,13 @@ function Setup({ onCrear, loading }) {
       <div style={{ background: 'var(--surface)', borderRadius: 20, padding: 28, width: '100%', maxWidth: 420, border: '1px solid var(--border)' }}>
         <label style={{ display: 'block', marginBottom: 6, fontSize: 13, color: 'var(--muted)' }}>Nombre del negocio</label>
         <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: Barbería El Maestro"
-          style={{ width: '100%', padding: '12px 16px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text)', fontSize: 15, marginBottom: 20, outline: 'none' }} />
+          style={{ width: '100%', padding: '12px 16px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text)', fontSize: 15, marginBottom: 16, outline: 'none' }} />
+        <label style={{ display: 'block', marginBottom: 6, fontSize: 13, color: 'var(--muted)' }}>WhatsApp del negocio</label>
+        <div style={{ position: 'relative', marginBottom: 20 }}>
+          <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontSize: 14 }}>+1</span>
+          <input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="8091234567" type="tel"
+            style={{ width: '100%', padding: '12px 16px 12px 36px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text)', fontSize: 15, outline: 'none' }} />
+        </div>
         <label style={{ display: 'block', marginBottom: 12, fontSize: 13, color: 'var(--muted)' }}>Tipo de negocio</label>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
           {TIPOS.map(t => (
@@ -208,7 +238,7 @@ function Setup({ onCrear, loading }) {
             </button>
           ))}
         </div>
-        <Btn full disabled={!nombre || !tipo || loading} onClick={() => onCrear(nombre, tipo)} style={{ background: tipo ? TIPOS.find(t => t.id === tipo)?.color : 'var(--accent)' }}>
+        <Btn full disabled={!nombre || !tipo || loading} onClick={() => onCrear(nombre, tipo, whatsapp)} style={{ background: tipo ? TIPOS.find(t => t.id === tipo)?.color : 'var(--accent)' }}>
           {loading ? 'Creando...' : 'Empezar →'}
         </Btn>
       </div>
@@ -471,10 +501,12 @@ function ServiciosTab({ servicios, setServicios, tipoInfo }) {
 }
 
 // ===================== CLIENTE VIEW =====================
-function ClienteView({ negocio, servicios, empleados, booking, setBooking, onAgendar, onVolver, tipoInfo }) {
+function ClienteView({ negocio, servicios, empleados, productos, booking, setBooking, carrito, setCarrito, onAgendar, onPedido, onVolver, tipoInfo }) {
   const disponibles = empleados.filter(e => e.estado === 'disponible')
   const hoy = new Date().toISOString().split('T')[0]
   const [confirmado, setConfirmado] = useState(false)
+  const [tabCliente, setTabCliente] = useState('cita') // cita | tienda
+  const [pedidoConfirmado, setPedidoConfirmado] = useState(false)
 
   async function confirmar() {
     if (!booking.nombre || !booking.fecha || !booking.hora || !booking.servicio || !booking.empleado) return
@@ -489,26 +521,95 @@ function ClienteView({ negocio, servicios, empleados, booking, setBooking, onAge
     setConfirmado(true)
   }
 
+  function abrirWhatsApp() {
+    const tel = negocio?.whatsapp ? `1${negocio.whatsapp.replace(/\D/g,'')}` : ''
+    const msg = encodeURIComponent(
+      `Hola ${negocio?.nombre} 👋\n\nAcabo de agendar una cita:\n\n` +
+      `📋 Servicio: ${booking.servicio?.nombre}\n` +
+      `👤 ${tipoInfo.rol}: ${booking.empleado?.nombre}\n` +
+      `📅 Fecha: ${booking.fecha}\n` +
+      `⏰ Hora: ${booking.hora}\n` +
+      `💰 Total: RD$${booking.servicio?.precio}\n\n` +
+      `Mi nombre: ${booking.nombre}\n` +
+      (booking.tel ? `Tel: ${booking.tel}` : '')
+    )
+    window.open(`https://wa.me/${tel}?text=${msg}`, '_blank')
+  }
+
   if (confirmado) return (
     <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ fontSize: 64, marginBottom: 16 }}>✅</div>
       <div style={{ fontFamily: 'Syne', fontSize: 24, fontWeight: 800, marginBottom: 8 }}>¡Cita agendada!</div>
-      <div style={{ color: 'var(--muted)', textAlign: 'center', marginBottom: 24 }}>Te esperamos el {booking.fecha} a las {booking.hora}</div>
-      <Btn onClick={() => { setConfirmado(false); setBooking({ paso: 1, servicio: null, empleado: null, fecha: '', hora: '', nombre: '', tel: '' }) }} style={{ background: tipoInfo.color }}>Nueva cita</Btn>
+      <div style={{ color: 'var(--muted)', textAlign: 'center', marginBottom: 8 }}>Te esperamos el {booking.fecha} a las {booking.hora}</div>
+      <div style={{ color: 'var(--muted)', textAlign: 'center', fontSize: 13, marginBottom: 28 }}>Toca el botón para notificar al negocio por WhatsApp</div>
+
+      <button onClick={abrirWhatsApp} style={{
+        display: 'flex', alignItems: 'center', gap: 10, padding: '14px 24px',
+        background: '#25D366', borderRadius: 14, border: 'none', color: 'white',
+        fontWeight: 700, fontSize: 16, cursor: 'pointer', marginBottom: 14, width: '100%', maxWidth: 320, justifyContent: 'center'
+      }}>
+        <span style={{ fontSize: 22 }}>💬</span> Avisar por WhatsApp
+      </button>
+
+      <Btn onClick={() => { setConfirmado(false); setBooking({ paso: 1, servicio: null, empleado: null, fecha: '', hora: '', nombre: '', tel: '' }) }} ghost style={{ width: '100%', maxWidth: 320 }}>
+        Agendar otra cita
+      </Btn>
     </div>
   )
+
+  const totalCarrito = carrito.reduce((s, i) => s + i.precio * i.cantidad, 0)
+
+  async function confirmarPedido(nombre, tel) {
+    if (!nombre || carrito.length === 0) return
+    await onPedido({ cliente_nombre: nombre, cliente_tel: tel, items: carrito, total: totalCarrito })
+    setCarrito([])
+    setPedidoConfirmado(true)
+  }
 
   return (
     <div style={{ minHeight: '100dvh' }}>
       <header style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <button onClick={onVolver} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 18, cursor: 'pointer' }}>←</button>
-        <div>
+        <div style={{ flex: 1 }}>
           <div style={{ fontFamily: 'Syne', fontWeight: 700 }}>{negocio?.nombre}</div>
-          <div style={{ fontSize: 11, color: 'var(--muted)' }}>Reserva tu cita</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{tipoInfo.label}</div>
         </div>
+        {carrito.length > 0 && (
+          <div style={{ background: tipoInfo.color, borderRadius: 99, width: 22, height: 22, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, color: 'white' }}>
+            {carrito.reduce((s, i) => s + i.cantidad, 0)}
+          </div>
+        )}
       </header>
 
+      {/* Tabs cliente */}
+      <nav style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', padding: '0 20px' }}>
+        {[{ id: 'cita', label: '📅 Agendar cita' }, { id: 'tienda', label: '🛍️ Tienda' }].map(t => (
+          <button key={t.id} onClick={() => setTabCliente(t.id)} style={{
+            padding: '12px 16px', background: 'none', border: 'none',
+            color: tabCliente === t.id ? tipoInfo.color : 'var(--muted)',
+            borderBottom: tabCliente === t.id ? `2px solid ${tipoInfo.color}` : '2px solid transparent',
+            fontWeight: tabCliente === t.id ? 600 : 400, fontSize: 13, cursor: 'pointer'
+          }}>{t.label}</button>
+        ))}
+      </nav>
+
       <div style={{ padding: 20, maxWidth: 500, margin: '0 auto' }}>
+
+        {tabCliente === 'tienda' && (
+          <TiendaClienteView
+            productos={productos}
+            carrito={carrito}
+            setCarrito={setCarrito}
+            tipoInfo={tipoInfo}
+            negocio={negocio}
+            onConfirmar={confirmarPedido}
+            pedidoConfirmado={pedidoConfirmado}
+            setPedidoConfirmado={setPedidoConfirmado}
+            totalCarrito={totalCarrito}
+          />
+        )}
+
+        {tabCliente === 'cita' && <>
         {/* Progress */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
           {[1, 2, 3, 4].map(p => (
@@ -606,9 +707,144 @@ function ClienteView({ negocio, servicios, empleados, booking, setBooking, onAge
             <Btn full disabled={!booking.nombre} onClick={confirmar} style={{ background: tipoInfo.color }}>✅ Confirmar cita</Btn>
           </div>
         )}
+        </>}
       </div>
     </div>
   )
+}
+
+// ===================== TIENDA CLIENTE =====================
+function TiendaClienteView({ productos, carrito, setCarrito, tipoInfo, negocio, onConfirmar, pedidoConfirmado, setPedidoConfirmado, totalCarrito }) {
+  const [paso, setPaso] = useState('catalogo') // catalogo | carrito | datos
+  const [nombre, setNombre] = useState('')
+  const [tel, setTel] = useState('')
+
+  function agregarAlCarrito(p) {
+    setCarrito(prev => {
+      const existe = prev.find(i => i.id === p.id)
+      if (existe) return prev.map(i => i.id === p.id ? { ...i, cantidad: i.cantidad + 1 } : i)
+      return [...prev, { ...p, cantidad: 1 }]
+    })
+  }
+
+  function quitarDelCarrito(id) {
+    setCarrito(prev => {
+      const item = prev.find(i => i.id === id)
+      if (item?.cantidad === 1) return prev.filter(i => i.id !== id)
+      return prev.map(i => i.id === id ? { ...i, cantidad: i.cantidad - 1 } : i)
+    })
+  }
+
+  function abrirWhatsAppPedido() {
+    const tel_neg = negocio?.whatsapp ? `1${negocio.whatsapp.replace(/\D/g,'')}` : ''
+    const lista = carrito.map(i => `• ${i.nombre} x${i.cantidad} = RD$${i.precio * i.cantidad}`).join('\n')
+    const msg = encodeURIComponent(
+      `Hola ${negocio?.nombre} 👋\n\nQuiero hacer un pedido:\n\n${lista}\n\n💰 Total: RD$${totalCarrito}\n\nMi nombre: ${nombre}\n${tel ? `Tel: ${tel}` : ''}`
+    )
+    window.open(`https://wa.me/${tel_neg}?text=${msg}`, '_blank')
+  }
+
+  if (pedidoConfirmado) return (
+    <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+      <div style={{ fontSize: 64, marginBottom: 16 }}>📦</div>
+      <div style={{ fontFamily: 'Syne', fontSize: 22, fontWeight: 800, marginBottom: 8 }}>¡Pedido enviado!</div>
+      <div style={{ color: 'var(--muted)', marginBottom: 8 }}>Tu pedido por RD${totalCarrito} fue registrado</div>
+      <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 28 }}>Avisa al negocio por WhatsApp para coordinarlo</div>
+      <button onClick={abrirWhatsAppPedido} style={{
+        display: 'flex', alignItems: 'center', gap: 10, padding: '14px 24px',
+        background: '#25D366', borderRadius: 14, border: 'none', color: 'white',
+        fontWeight: 700, fontSize: 16, cursor: 'pointer', marginBottom: 14, width: '100%', justifyContent: 'center'
+      }}>💬 Avisar por WhatsApp</button>
+      <Btn ghost full onClick={() => { setPedidoConfirmado(false); setPaso('catalogo') }}>Ver más productos</Btn>
+    </div>
+  )
+
+  if (paso === 'catalogo') return (
+    <div>
+      <h3 style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 20, marginBottom: 16 }}>Productos disponibles</h3>
+      {productos.filter(p => p.stock > 0).length === 0 && (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--muted)' }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🛍️</div>
+          <div>No hay productos disponibles por ahora</div>
+        </div>
+      )}
+      <div style={{ display: 'grid', gap: 10 }}>
+        {productos.filter(p => p.stock > 0).map(p => {
+          const enCarrito = carrito.find(i => i.id === p.id)
+          return (
+            <div key={p.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px', display: 'flex', gap: 12, alignItems: 'center' }}>
+              <div style={{ width: 52, height: 52, borderRadius: 12, background: tipoInfo.color + '18', display: 'grid', placeItems: 'center', fontSize: 26, flexShrink: 0 }}>{p.emoji}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600 }}>{p.nombre}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.descripcion}</div>
+                <div style={{ fontFamily: 'Syne', fontWeight: 700, color: tipoInfo.color, marginTop: 2 }}>RD${p.precio}</div>
+              </div>
+              {enCarrito ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button onClick={() => quitarDelCarrito(p.id)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${tipoInfo.color}`, background: 'transparent', color: tipoInfo.color, fontSize: 18, cursor: 'pointer', display: 'grid', placeItems: 'center' }}>-</button>
+                  <span style={{ fontWeight: 700, minWidth: 20, textAlign: 'center' }}>{enCarrito.cantidad}</span>
+                  <button onClick={() => agregarAlCarrito(p)} style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: tipoInfo.color, color: 'white', fontSize: 18, cursor: 'pointer', display: 'grid', placeItems: 'center' }}>+</button>
+                </div>
+              ) : (
+                <button onClick={() => agregarAlCarrito(p)} style={{ padding: '8px 14px', borderRadius: 10, border: 'none', background: tipoInfo.color, color: 'white', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>+ Agregar</button>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      {carrito.length > 0 && (
+        <div style={{ position: 'sticky', bottom: 16, marginTop: 20 }}>
+          <Btn full onClick={() => setPaso('carrito')} style={{ background: tipoInfo.color, boxShadow: `0 4px 20px ${tipoInfo.color}55` }}>
+            🛒 Ver carrito ({carrito.reduce((s, i) => s + i.cantidad, 0)}) · RD${totalCarrito}
+          </Btn>
+        </div>
+      )}
+    </div>
+  )
+
+  if (paso === 'carrito') return (
+    <div>
+      <button onClick={() => setPaso('catalogo')} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', marginBottom: 16 }}>← Seguir comprando</button>
+      <h3 style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 20, marginBottom: 16 }}>Tu carrito</h3>
+      <div style={{ display: 'grid', gap: 10, marginBottom: 20 }}>
+        {carrito.map(item => (
+          <div key={item.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 24 }}>{item.emoji}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600 }}>{item.nombre}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>RD${item.precio} c/u</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button onClick={() => quitarDelCarrito(item.id)} style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${tipoInfo.color}`, background: 'transparent', color: tipoInfo.color, cursor: 'pointer', fontSize: 16 }}>-</button>
+              <span style={{ fontWeight: 700, minWidth: 20, textAlign: 'center' }}>{item.cantidad}</span>
+              <button onClick={() => setCarrito(prev => prev.map(i => i.id === item.id ? { ...i, cantidad: i.cantidad + 1 } : i))} style={{ width: 28, height: 28, borderRadius: 6, border: 'none', background: tipoInfo.color, color: 'white', cursor: 'pointer', fontSize: 16 }}>+</button>
+            </div>
+            <div style={{ fontFamily: 'Syne', fontWeight: 700, color: tipoInfo.color, minWidth: 60, textAlign: 'right' }}>RD${item.precio * item.cantidad}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontWeight: 600 }}>Total a pagar en local</span>
+        <span style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: 20, color: tipoInfo.color }}>RD${totalCarrito}</span>
+      </div>
+      <Btn full onClick={() => setPaso('datos')} style={{ background: tipoInfo.color }}>Continuar →</Btn>
+    </div>
+  )
+
+  if (paso === 'datos') return (
+    <div>
+      <button onClick={() => setPaso('carrito')} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', marginBottom: 16 }}>← Atrás</button>
+      <h3 style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 20, marginBottom: 6 }}>Tus datos</h3>
+      <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 20 }}>Pagas cuando recoges en el local</div>
+      <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Tu nombre completo"
+        style={{ width: '100%', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--text)', marginBottom: 10, outline: 'none' }} />
+      <input value={tel} onChange={e => setTel(e.target.value)} placeholder="Teléfono (opcional)"
+        style={{ width: '100%', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--text)', marginBottom: 20, outline: 'none' }} />
+      <Btn full disabled={!nombre} onClick={() => onConfirmar(nombre, tel)} style={{ background: tipoInfo.color }}>✅ Confirmar pedido · RD${totalCarrito}</Btn>
+    </div>
+  )
+
+  return null
 }
 
 // ===================== HELPERS =====================
@@ -622,5 +858,136 @@ function Btn({ children, onClick, disabled, full, small, ghost, style = {}, ...p
       opacity: disabled ? 0.5 : 1, width: full ? '100%' : 'auto',
       fontFamily: 'inherit', transition: 'opacity .2s', ...style
     }}>{children}</button>
+  )
+}
+
+// ===================== TIENDA ADMIN =====================
+function TiendaAdminTab({ productos, setProductos, tipoInfo }) {
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ nombre: '', precio: '', stock: '', descripcion: '', categoria: '', emoji: '🧴' })
+  const EMOJIS = ['🧴', '🫙', '✂️', '💈', '🪒', '🧼', '💊', '🛍️', '📦', '🎁']
+
+  function agregar() {
+    if (!form.nombre || !form.precio) return
+    setProductos(prev => [...prev, { ...form, precio: +form.precio, stock: +form.stock || 0, id: Date.now() }])
+    setForm({ nombre: '', precio: '', stock: '', descripcion: '', categoria: '', emoji: '🧴' })
+    setShowForm(false)
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div>
+          <h2 style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 20 }}>Tienda</h2>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{productos.length} productos en catálogo</div>
+        </div>
+        <Btn small onClick={() => setShowForm(!showForm)} style={{ background: tipoInfo.color }}>+ Producto</Btn>
+      </div>
+
+      {showForm && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 16, marginBottom: 16 }}>
+          <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 8, fontWeight: 600 }}>Ícono del producto</div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+            {EMOJIS.map(e => (
+              <button key={e} onClick={() => setForm(f => ({ ...f, emoji: e }))}
+                style={{ width: 38, height: 38, borderRadius: 8, border: `2px solid ${form.emoji === e ? tipoInfo.color : 'var(--border)'}`, background: form.emoji === e ? tipoInfo.color + '20' : 'var(--surface2)', fontSize: 20, cursor: 'pointer' }}>{e}</button>
+            ))}
+          </div>
+          {[
+            { key: 'nombre', placeholder: 'Nombre del producto' },
+            { key: 'descripcion', placeholder: 'Descripción breve' },
+            { key: 'categoria', placeholder: 'Categoría (Cabello, Barba, Uñas...)' },
+            { key: 'precio', placeholder: 'Precio (RD$)', type: 'number' },
+            { key: 'stock', placeholder: 'Cantidad en stock', type: 'number' },
+          ].map(({ key, placeholder, type }) => (
+            <input key={key} type={type || 'text'} value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
+              style={{ width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', marginBottom: 8, outline: 'none', fontSize: 14 }} />
+          ))}
+          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            <Btn full onClick={agregar} style={{ background: tipoInfo.color }}>Guardar producto</Btn>
+            <Btn full ghost onClick={() => setShowForm(false)}>Cancelar</Btn>
+          </div>
+        </div>
+      )}
+
+      {productos.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--muted)' }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🛍️</div>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Sin productos aún</div>
+          <div style={{ fontSize: 13 }}>Agrega productos que quieras vender a tus clientes</div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gap: 10 }}>
+        {productos.map((p) => (
+          <div key={p.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: tipoInfo.color + '18', display: 'grid', placeItems: 'center', fontSize: 24, flexShrink: 0 }}>{p.emoji}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>{p.nombre}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 2 }}>{p.descripcion}</div>
+              <div style={{ fontSize: 11, color: p.stock > 0 ? '#4ade80' : '#f87171', fontWeight: 600 }}>
+                {p.stock > 0 ? `✅ ${p.stock} en stock` : '❌ Sin stock'}
+              </div>
+            </div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontFamily: 'Syne', fontWeight: 700, color: tipoInfo.color, fontSize: 16 }}>RD${p.precio}</div>
+              <button onClick={() => setProductos(prev => prev.filter(x => x.id !== p.id))}
+                style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, marginTop: 4 }}>🗑 Eliminar</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ===================== PEDIDOS ADMIN =====================
+function PedidosTab({ pedidos, setPedidos, tipoInfo }) {
+  const estadoColors = { pendiente: '#fbbf24', preparando: '#6c63ff', listo: '#4ade80', entregado: '#8888a0' }
+
+  return (
+    <div>
+      <div style={{ marginBottom: 20 }}>
+        <h2 style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 20 }}>Pedidos</h2>
+        <div style={{ fontSize: 12, color: 'var(--muted)' }}>{pedidos.filter(p => p.estado !== 'entregado').length} pedidos activos</div>
+      </div>
+
+      {pedidos.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--muted)' }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>📦</div>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Sin pedidos aún</div>
+          <div style={{ fontSize: 13 }}>Cuando un cliente haga un pedido aparecerá aquí</div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gap: 10 }}>
+        {[...pedidos].reverse().map(p => {
+          const color = estadoColors[p.estado] || '#fbbf24'
+          return (
+            <div key={p.id} style={{ background: 'var(--surface)', border: `1px solid ${color}44`, borderLeft: `3px solid ${color}`, borderRadius: 12, padding: '14px 16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 15 }}>{p.cliente_nombre}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.items?.length || 0} producto(s) · RD${p.total}</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{p.fecha ? new Date(p.fecha).toLocaleDateString('es-DO') : ''}</div>
+                </div>
+                <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 99, background: color + '22', color, fontWeight: 600 }}>{p.estado}</span>
+              </div>
+              {p.items?.map((item, i) => (
+                <div key={i} style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 2 }}>• {item.nombre} x{item.cantidad} — RD${item.precio * item.cantidad}</div>
+              ))}
+              <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                {['preparando', 'listo', 'entregado'].map(s => (
+                  <button key={s} onClick={() => setPedidos(prev => prev.map(x => x.id === p.id ? { ...x, estado: s } : x))}
+                    style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${estadoColors[s]}44`, background: estadoColors[s] + '15', color: estadoColors[s], fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
