@@ -23,62 +23,532 @@ const SERVICIOS_DEFAULT = [
 ]
 
 export default function App() {
-  const [vista, setVista] = useState('setup') // setup | admin | cliente
+  const [vista, setVista] = useState('splash') // splash | auth | directorio | admin | negocio_cliente
+  const [user, setUser] = useState(null)
+  const [perfil, setPerfil] = useState(null) // { tipo: 'cliente' | 'negocio', negocio_id }
+  const [negocioSeleccionado, setNegocioSeleccionado] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user)
+        cargarPerfil(session.user.id)
+      } else {
+        setLoading(false)
+        setVista('auth')
+      }
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser(session.user)
+        cargarPerfil(session.user.id)
+      } else {
+        setUser(null)
+        setPerfil(null)
+        setVista('auth')
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  async function cargarPerfil(userId) {
+    try {
+      const { data } = await supabase.from('perfiles').select('*').eq('user_id', userId).single()
+      if (data) {
+        setPerfil(data)
+        if (data.tipo === 'negocio') setVista('admin')
+        else setVista('directorio')
+      } else {
+        setVista('setup_perfil')
+      }
+    } catch {
+      setVista('setup_perfil')
+    }
+    setLoading(false)
+  }
+
+  async function logout() {
+    await supabase.auth.signOut()
+    setVista('auth')
+    setUser(null)
+    setPerfil(null)
+    setNegocioSeleccionado(null)
+  }
+
+  if (loading) return (
+    <div style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', background: 'var(--bg)' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontFamily: 'Syne', fontSize: 36, fontWeight: 800 }}>Pro<span style={{ color: '#6c63ff' }}>Cita</span></div>
+        <div style={{ color: 'var(--muted)', marginTop: 8, fontSize: 13 }}>Cargando...</div>
+      </div>
+    </div>
+  )
+
+  if (vista === 'auth') return <AuthView onAuth={() => {}} />
+  if (vista === 'setup_perfil') return <SetupPerfil user={user} onDone={(p) => { setPerfil(p); setVista(p.tipo === 'negocio' ? 'admin' : 'directorio') }} />
+  if (vista === 'directorio') return <DirectorioView user={user} perfil={perfil} onSeleccionar={(n) => { setNegocioSeleccionado(n); setVista('negocio_cliente') }} onLogout={logout} />
+  if (vista === 'negocio_cliente') return <NegocioClienteView negocio={negocioSeleccionado} user={user} onVolver={() => setVista('directorio')} />
+  if (vista === 'admin') return <AdminView user={user} perfil={perfil} onLogout={logout} onVerDirectorio={() => setVista('directorio')} />
+
+  return null
+}
+
+// ===================== AUTH =====================
+function AuthView({ onAuth }) {
+  const [modo, setModo] = useState('login') // login | registro
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [mensaje, setMensaje] = useState('')
+
+  async function handleSubmit() {
+    if (!email || !password) return
+    setLoading(true)
+    setError('')
+    try {
+      if (modo === 'registro') {
+        const { error } = await supabase.auth.signUp({ email, password })
+        if (error) throw error
+        setMensaje('¡Revisa tu correo para confirmar tu cuenta!')
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        if (error) throw error
+      }
+    } catch (e) {
+      setError(e.message === 'Invalid login credentials' ? 'Correo o contraseña incorrectos' : e.message)
+    }
+    setLoading(false)
+  }
+
+  return (
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--bg)' }}>
+      <div style={{ marginBottom: 32, textAlign: 'center' }}>
+        <div style={{ fontFamily: 'Syne', fontSize: 40, fontWeight: 800, letterSpacing: -1 }}>Pro<span style={{ color: '#6c63ff' }}>Cita</span></div>
+        <div style={{ color: 'var(--muted)', marginTop: 8 }}>Tu plataforma de citas y servicios</div>
+      </div>
+
+      <div style={{ background: 'var(--surface)', borderRadius: 20, padding: 28, width: '100%', maxWidth: 400, border: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', marginBottom: 24, background: 'var(--surface2)', borderRadius: 10, padding: 4 }}>
+          {['login', 'registro'].map(m => (
+            <button key={m} onClick={() => setModo(m)} style={{
+              flex: 1, padding: '10px', borderRadius: 8, border: 'none',
+              background: modo === m ? '#6c63ff' : 'transparent',
+              color: modo === m ? 'white' : 'var(--muted)',
+              fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit'
+            }}>{m === 'login' ? 'Entrar' : 'Registrarse'}</button>
+          ))}
+        </div>
+
+        {mensaje ? (
+          <div style={{ textAlign: 'center', padding: '20px 0' }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>📧</div>
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>¡Correo enviado!</div>
+            <div style={{ color: 'var(--muted)', fontSize: 13 }}>{mensaje}</div>
+            <Btn onClick={() => setMensaje('')} style={{ marginTop: 16, background: '#6c63ff' }}>Volver</Btn>
+          </div>
+        ) : (
+          <>
+            <label style={{ display: 'block', marginBottom: 6, fontSize: 13, color: 'var(--muted)' }}>Correo electrónico</label>
+            <input value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@correo.com" type="email"
+              style={{ width: '100%', padding: '12px 16px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text)', fontSize: 15, marginBottom: 16, outline: 'none' }} />
+            <label style={{ display: 'block', marginBottom: 6, fontSize: 13, color: 'var(--muted)' }}>Contraseña</label>
+            <input value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" type="password"
+              style={{ width: '100%', padding: '12px 16px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text)', fontSize: 15, marginBottom: 20, outline: 'none' }} />
+            {error && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>{error}</div>}
+            <Btn full disabled={!email || !password || loading} onClick={handleSubmit} style={{ background: '#6c63ff' }}>
+              {loading ? 'Cargando...' : modo === 'login' ? 'Entrar →' : 'Crear cuenta →'}
+            </Btn>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ===================== SETUP PERFIL =====================
+function SetupPerfil({ user, onDone }) {
+  const [tipo, setTipo] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function elegir(t) {
+    setTipo(t)
+    setLoading(true)
+    try {
+      const { data } = await supabase.from('perfiles').insert({ user_id: user.id, tipo: t, email: user.email }).select().single()
+      onDone(data)
+    } catch {
+      onDone({ user_id: user.id, tipo: t, email: user.email })
+    }
+    setLoading(false)
+  }
+
+  return (
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ fontFamily: 'Syne', fontSize: 24, fontWeight: 800, marginBottom: 8, textAlign: 'center' }}>¿Cómo vas a usar ProCita?</div>
+      <div style={{ color: 'var(--muted)', marginBottom: 32, textAlign: 'center' }}>Elige tu tipo de cuenta</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, width: '100%', maxWidth: 400 }}>
+        <button onClick={() => elegir('cliente')} disabled={loading} style={{
+          padding: '28px 16px', borderRadius: 16, border: '2px solid var(--border)',
+          background: 'var(--surface)', color: 'var(--text)', textAlign: 'center', cursor: 'pointer'
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>👤</div>
+          <div style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Cliente</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Busco barberías y salones</div>
+        </button>
+        <button onClick={() => elegir('negocio')} disabled={loading} style={{
+          padding: '28px 16px', borderRadius: 16, border: '2px solid var(--border)',
+          background: 'var(--surface)', color: 'var(--text)', textAlign: 'center', cursor: 'pointer'
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🏪</div>
+          <div style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Negocio</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Tengo una barbería o salón</div>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ===================== DIRECTORIO =====================
+function DirectorioView({ user, perfil, onSeleccionar, onLogout }) {
+  const [negocios, setNegocios] = useState([])
+  const [filtro, setFiltro] = useState('todos')
+  const [loading, setLoading] = useState(true)
+  const [busqueda, setBusqueda] = useState('')
+
+  useEffect(() => {
+    cargar()
+  }, [])
+
+  async function cargar() {
+    try {
+      const { data } = await supabase.from('negocios').select('*').order('created_at', { ascending: false })
+      setNegocios(data || [])
+    } catch {}
+    setLoading(false)
+  }
+
+  const filtrados = negocios.filter(n => {
+    const matchTipo = filtro === 'todos' || n.tipo === filtro
+    const matchBusqueda = n.nombre?.toLowerCase().includes(busqueda.toLowerCase())
+    return matchTipo && matchBusqueda
+  })
+
+  return (
+    <div style={{ minHeight: '100dvh' }}>
+      <header style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '16px 20px', position: 'sticky', top: 0, zIndex: 50 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div style={{ fontFamily: 'Syne', fontSize: 22, fontWeight: 800 }}>Pro<span style={{ color: '#6c63ff' }}>Cita</span></div>
+          <button onClick={onLogout} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--muted)', padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>Salir</button>
+        </div>
+        <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="🔍 Buscar barbería, salón..."
+          style={{ width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text)', fontSize: 14, outline: 'none', marginBottom: 12 }} />
+        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
+          {[{ id: 'todos', label: '🌟 Todos' }, ...TIPOS.map(t => ({ id: t.id, label: `${t.emoji} ${t.label}` }))].map(f => (
+            <button key={f.id} onClick={() => setFiltro(f.id)} style={{
+              padding: '6px 14px', borderRadius: 99, border: `1px solid ${filtro === f.id ? '#6c63ff' : 'var(--border)'}`,
+              background: filtro === f.id ? '#6c63ff20' : 'transparent', color: filtro === f.id ? '#6c63ff' : 'var(--muted)',
+              fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0
+            }}>{f.label}</button>
+          ))}
+        </div>
+      </header>
+
+      <main style={{ padding: 20, maxWidth: 600, margin: '0 auto' }}>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 18 }}>Negocios disponibles</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{filtrados.length} encontrados</div>
+        </div>
+
+        {loading && <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>Cargando negocios...</div>}
+
+        {!loading && filtrados.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--muted)' }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🔍</div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay negocios aún</div>
+            <div style={{ fontSize: 13 }}>Sé el primero en registrar tu negocio</div>
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gap: 12 }}>
+          {filtrados.map(n => {
+            const ti = TIPOS.find(t => t.id === n.tipo) || TIPOS[0]
+            return (
+              <button key={n.id} onClick={() => onSeleccionar(n)} style={{
+                background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16,
+                padding: '18px', textAlign: 'left', cursor: 'pointer', width: '100%',
+                transition: 'border-color .2s'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{ width: 56, height: 56, borderRadius: 14, background: ti.color + '22', display: 'grid', placeItems: 'center', fontSize: 28, flexShrink: 0 }}>{ti.emoji}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>{n.nombre}</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{ti.label}</div>
+                    {n.whatsapp && <div style={{ fontSize: 11, color: '#25D366', marginTop: 4 }}>📱 WhatsApp disponible</div>}
+                  </div>
+                  <div style={{ color: ti.color, fontSize: 20 }}>→</div>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      </main>
+    </div>
+  )
+}
+
+// ===================== NEGOCIO CLIENTE VIEW =====================
+function NegocioClienteView({ negocio, user, onVolver }) {
+  const tipoInfo = TIPOS.find(t => t.id === negocio?.tipo) || TIPOS[0]
+  const [empleados, setEmpleados] = useState([])
+  const [servicios, setServicios] = useState(SERVICIOS_DEFAULT)
+  const [productos, setProductos] = useState([])
+  const [tabCliente, setTabCliente] = useState('cita')
+  const [booking, setBooking] = useState({ paso: 1, servicio: null, empleado: null, fecha: '', hora: '', nombre: '', tel: '' })
+  const [carrito, setCarrito] = useState([])
+  const [confirmado, setConfirmado] = useState(false)
+  const [pedidoConfirmado, setPedidoConfirmado] = useState(false)
+
+  useEffect(() => {
+    if (negocio?.id) {
+      supabase.from('empleados').select('*').eq('negocio_id', negocio.id).then(({ data }) => { if (data) setEmpleados(data) })
+      supabase.from('productos').select('*').eq('negocio_id', negocio.id).then(({ data }) => { if (data) setProductos(data) })
+    }
+  }, [negocio])
+
+  async function agendarCita() {
+    if (!booking.nombre || !booking.fecha || !booking.hora || !booking.servicio || !booking.empleado) return
+    try {
+      await supabase.from('citas').insert({
+        negocio_id: negocio.id, cliente_nombre: booking.nombre, cliente_tel: booking.tel,
+        servicio: booking.servicio.nombre, empleado_id: booking.empleado.id, fecha: booking.fecha, hora: booking.hora, estado: 'pendiente'
+      })
+    } catch {}
+    setConfirmado(true)
+  }
+
+  async function hacerPedido(nombre, tel) {
+    const total = carrito.reduce((s, i) => s + i.precio * i.cantidad, 0)
+    try {
+      await supabase.from('pedidos').insert({ negocio_id: negocio.id, cliente_nombre: nombre, cliente_tel: tel, items: carrito, total, estado: 'pendiente' })
+    } catch {}
+    setCarrito([])
+    setPedidoConfirmado(true)
+  }
+
+  const totalCarrito = carrito.reduce((s, i) => s + i.precio * i.cantidad, 0)
+  const disponibles = empleados.filter(e => e.estado === 'disponible')
+  const hoy = new Date().toISOString().split('T')[0]
+
+  function abrirWhatsApp(msg) {
+    const tel = negocio?.whatsapp ? `1${negocio.whatsapp.replace(/\D/g, '')}` : ''
+    window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, '_blank')
+  }
+
+  if (confirmado) return (
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ fontSize: 64, marginBottom: 16 }}>✅</div>
+      <div style={{ fontFamily: 'Syne', fontSize: 24, fontWeight: 800, marginBottom: 8 }}>¡Cita agendada!</div>
+      <div style={{ color: 'var(--muted)', textAlign: 'center', marginBottom: 8 }}>Te esperamos el {booking.fecha} a las {booking.hora}</div>
+      <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 28, textAlign: 'center' }}>Avisa al negocio por WhatsApp</div>
+      <button onClick={() => abrirWhatsApp(`Hola ${negocio.nombre} 👋\n\nAcabo de agendar una cita:\n📋 ${booking.servicio?.nombre}\n👤 ${booking.empleado?.nombre}\n📅 ${booking.fecha} a las ${booking.hora}\n\nMi nombre: ${booking.nombre}`)}
+        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 24px', background: '#25D366', borderRadius: 14, border: 'none', color: 'white', fontWeight: 700, fontSize: 16, cursor: 'pointer', marginBottom: 12, width: '100%', maxWidth: 320, justifyContent: 'center' }}>
+        💬 Avisar por WhatsApp
+      </button>
+      <Btn ghost onClick={() => { setConfirmado(false); setBooking({ paso: 1, servicio: null, empleado: null, fecha: '', hora: '', nombre: '', tel: '' }); onVolver() }} style={{ width: '100%', maxWidth: 320 }}>Volver al directorio</Btn>
+    </div>
+  )
+
+  return (
+    <div style={{ minHeight: '100dvh' }}>
+      <header style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 50 }}>
+        <button onClick={onVolver} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 20, cursor: 'pointer' }}>←</button>
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: tipoInfo.color + '22', display: 'grid', placeItems: 'center', fontSize: 18 }}>{tipoInfo.emoji}</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 15 }}>{negocio?.nombre}</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{tipoInfo.label}</div>
+        </div>
+        {carrito.length > 0 && (
+          <div style={{ background: tipoInfo.color, borderRadius: 99, width: 22, height: 22, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, color: 'white' }}>
+            {carrito.reduce((s, i) => s + i.cantidad, 0)}
+          </div>
+        )}
+      </header>
+
+      <nav style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', padding: '0 20px' }}>
+        {[{ id: 'cita', label: '📅 Cita' }, { id: 'tienda', label: '🛍️ Tienda' }].map(t => (
+          <button key={t.id} onClick={() => setTabCliente(t.id)} style={{
+            padding: '12px 16px', background: 'none', border: 'none',
+            color: tabCliente === t.id ? tipoInfo.color : 'var(--muted)',
+            borderBottom: tabCliente === t.id ? `2px solid ${tipoInfo.color}` : '2px solid transparent',
+            fontWeight: tabCliente === t.id ? 600 : 400, fontSize: 13, cursor: 'pointer'
+          }}>{t.label}</button>
+        ))}
+      </nav>
+
+      <div style={{ padding: 20, maxWidth: 500, margin: '0 auto' }}>
+        {tabCliente === 'tienda' && (
+          <TiendaClienteView productos={productos} carrito={carrito} setCarrito={setCarrito} tipoInfo={tipoInfo}
+            negocio={negocio} onConfirmar={hacerPedido} pedidoConfirmado={pedidoConfirmado}
+            setPedidoConfirmado={setPedidoConfirmado} totalCarrito={totalCarrito} abrirWhatsApp={abrirWhatsApp} />
+        )}
+
+        {tabCliente === 'cita' && (
+          <>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
+              {[1, 2, 3, 4].map(p => (
+                <div key={p} style={{ flex: 1, height: 3, borderRadius: 99, background: booking.paso >= p ? tipoInfo.color : 'var(--border)', transition: 'background .3s' }} />
+              ))}
+            </div>
+
+            {booking.paso === 1 && (
+              <div>
+                <h3 style={{ fontFamily: 'Syne', fontWeight: 700, marginBottom: 16 }}>¿Qué servicio quieres?</h3>
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {servicios.map((s, i) => (
+                    <button key={i} onClick={() => setBooking(b => ({ ...b, servicio: s, paso: 2 }))}
+                      style={{ background: 'var(--surface)', border: `2px solid ${booking.servicio?.nombre === s.nombre ? tipoInfo.color : 'var(--border)'}`, borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', textAlign: 'left', width: '100%' }}>
+                      <span style={{ fontSize: 28 }}>{s.emoji}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, color: 'var(--text)' }}>{s.nombre}</div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>{s.duracion} min</div>
+                      </div>
+                      <div style={{ fontFamily: 'Syne', fontWeight: 700, color: tipoInfo.color }}>RD${s.precio}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {booking.paso === 2 && (
+              <div>
+                <button onClick={() => setBooking(b => ({ ...b, paso: 1 }))} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', marginBottom: 12 }}>← Atrás</button>
+                <h3 style={{ fontFamily: 'Syne', fontWeight: 700, marginBottom: 16 }}>Elige tu {tipoInfo.rol.toLowerCase()}</h3>
+                {disponibles.length === 0 && <div style={{ color: 'var(--muted)', textAlign: 'center', padding: 20 }}>No hay {tipoInfo.rol.toLowerCase()}s disponibles ahora</div>}
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {disponibles.map(emp => (
+                    <button key={emp.id} onClick={() => setBooking(b => ({ ...b, empleado: emp, paso: 3 }))}
+                      style={{ background: 'var(--surface)', border: `2px solid ${booking.empleado?.id === emp.id ? tipoInfo.color : 'var(--border)'}`, borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 12, background: tipoInfo.color + '22', display: 'grid', placeItems: 'center', fontFamily: 'Syne', fontWeight: 700, color: tipoInfo.color, fontSize: 16 }}>
+                        {tipoInfo.estacion[0]}{emp.numero}
+                      </div>
+                      <div style={{ textAlign: 'left' }}>
+                        <div style={{ fontWeight: 600, color: 'var(--text)' }}>{emp.nombre}</div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>{emp.especialidad || tipoInfo.rol}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {booking.paso === 3 && (
+              <div>
+                <button onClick={() => setBooking(b => ({ ...b, paso: 2 }))} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', marginBottom: 12 }}>← Atrás</button>
+                <h3 style={{ fontFamily: 'Syne', fontWeight: 700, marginBottom: 16 }}>Fecha y hora</h3>
+                <label style={{ fontSize: 13, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>Fecha</label>
+                <input type="date" value={booking.fecha} min={hoy} onChange={e => setBooking(b => ({ ...b, fecha: e.target.value }))}
+                  style={{ width: '100%', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--text)', marginBottom: 16, outline: 'none' }} />
+                <label style={{ fontSize: 13, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>Hora</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                  {HORAS.map(h => (
+                    <button key={h} onClick={() => setBooking(b => ({ ...b, hora: h }))} style={{
+                      padding: '10px 6px', borderRadius: 10, border: `2px solid ${booking.hora === h ? tipoInfo.color : 'var(--border)'}`,
+                      background: booking.hora === h ? tipoInfo.color + '20' : 'var(--surface)', color: booking.hora === h ? tipoInfo.color : 'var(--text)',
+                      fontSize: 13, fontWeight: 600, cursor: 'pointer'
+                    }}>{h}</button>
+                  ))}
+                </div>
+                <Btn full disabled={!booking.fecha || !booking.hora} onClick={() => setBooking(b => ({ ...b, paso: 4 }))} style={{ marginTop: 20, background: tipoInfo.color }}>Continuar →</Btn>
+              </div>
+            )}
+
+            {booking.paso === 4 && (
+              <div>
+                <button onClick={() => setBooking(b => ({ ...b, paso: 3 }))} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', marginBottom: 12 }}>← Atrás</button>
+                <h3 style={{ fontFamily: 'Syne', fontWeight: 700, marginBottom: 16 }}>Tus datos</h3>
+                <input value={booking.nombre} onChange={e => setBooking(b => ({ ...b, nombre: e.target.value }))} placeholder="Tu nombre completo"
+                  style={{ width: '100%', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--text)', marginBottom: 10, outline: 'none' }} />
+                <input value={booking.tel} onChange={e => setBooking(b => ({ ...b, tel: e.target.value }))} placeholder="Teléfono (opcional)"
+                  style={{ width: '100%', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--text)', marginBottom: 20, outline: 'none' }} />
+                <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, marginBottom: 20 }}>
+                  {[['Servicio', booking.servicio?.nombre], [tipoInfo.rol, booking.empleado?.nombre], ['Fecha', booking.fecha], ['Hora', booking.hora], ['Total', `RD$${booking.servicio?.precio}`]].map(([k, v]) => (
+                    <div key={k} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 14 }}>
+                      <span style={{ color: 'var(--muted)' }}>{k}</span>
+                      <span style={{ fontWeight: 600 }}>{v}</span>
+                    </div>
+                  ))}
+                </div>
+                <Btn full disabled={!booking.nombre} onClick={agendarCita} style={{ background: tipoInfo.color }}>✅ Confirmar cita</Btn>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ===================== ADMIN VIEW =====================
+function AdminView({ user, perfil, onLogout, onVerDirectorio }) {
   const [negocio, setNegocio] = useState(null)
   const [tab, setTab] = useState('empleados')
   const [empleados, setEmpleados] = useState([])
   const [citas, setCitas] = useState([])
   const [servicios, setServicios] = useState(SERVICIOS_DEFAULT)
-  const [loading, setLoading] = useState(false)
-  const [modal, setModal] = useState(null)
-  const [diaVista, setDiaVista] = useState('dia') // dia | semana
-  const [productos, setProductos] = useState([
-    { id: 1, nombre: 'Pomada para cabello', precio: 350, stock: 10, emoji: '🧴', descripcion: 'Fijación fuerte, acabado mate', categoria: 'Cabello' },
-    { id: 2, nombre: 'Aceite para barba', precio: 280, stock: 5, emoji: '🫙', descripcion: 'Hidrata y suaviza la barba', categoria: 'Barba' },
-  ])
+  const [productos, setProductos] = useState([])
   const [pedidos, setPedidos] = useState([])
-
-  // Booking flow
-  const [booking, setBooking] = useState({ paso: 1, servicio: null, empleado: null, fecha: '', hora: '', nombre: '', tel: '' })
-  const [carrito, setCarrito] = useState([])
+  const [diaVista, setDiaVista] = useState('dia')
+  const [setupNegocio, setSetupNegocio] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const saved = localStorage.getItem('procita_negocio')
-    if (saved) {
-      const n = JSON.parse(saved)
-      setNegocio(n)
-      setVista('admin')
-      cargarDatos(n.id)
-    }
+    cargarNegocio()
   }, [])
+
+  async function cargarNegocio() {
+    try {
+      const { data } = await supabase.from('negocios').select('*').eq('user_id', user.id).single()
+      if (data) {
+        const ti = TIPOS.find(t => t.id === data.tipo) || TIPOS[0]
+        setNegocio({ ...data, tipoInfo: ti })
+        cargarDatos(data.id)
+      } else {
+        setSetupNegocio(true)
+      }
+    } catch {
+      setSetupNegocio(true)
+    }
+    setLoading(false)
+  }
 
   async function cargarDatos(negocioId) {
     try {
-      const [{ data: emps }, { data: cts }] = await Promise.all([
+      const [{ data: emps }, { data: cts }, { data: prods }, { data: peds }] = await Promise.all([
         supabase.from('empleados').select('*').eq('negocio_id', negocioId),
-        supabase.from('citas').select('*').eq('negocio_id', negocioId).order('fecha').order('hora')
+        supabase.from('citas').select('*').eq('negocio_id', negocioId).order('fecha').order('hora'),
+        supabase.from('productos').select('*').eq('negocio_id', negocioId),
+        supabase.from('pedidos').select('*').eq('negocio_id', negocioId).order('fecha', { ascending: false }),
       ])
       if (emps) setEmpleados(emps)
       if (cts) setCitas(cts)
-    } catch (e) { console.log(e) }
+      if (prods) setProductos(prods)
+      if (peds) setPedidos(peds)
+    } catch {}
   }
 
   async function crearNegocio(nombre, tipo, whatsapp) {
-    setLoading(true)
     try {
-      const { data, error } = await supabase.from('negocios').insert({ nombre, tipo, whatsapp }).select().single()
-      if (error) throw error
-      const n = { ...data, tipoInfo: TIPOS.find(t => t.id === tipo) }
-      localStorage.setItem('procita_negocio', JSON.stringify(n))
-      setNegocio(n)
-      setVista('admin')
+      const { data } = await supabase.from('negocios').insert({ nombre, tipo, whatsapp, user_id: user.id }).select().single()
+      const ti = TIPOS.find(t => t.id === tipo) || TIPOS[0]
+      setNegocio({ ...data, tipoInfo: ti })
+      setSetupNegocio(false)
     } catch (e) {
-      const n = { id: Date.now(), nombre, tipo, whatsapp, tipoInfo: TIPOS.find(t => t.id === tipo) }
-      localStorage.setItem('procita_negocio', JSON.stringify(n))
+      const n = { id: Date.now(), nombre, tipo, whatsapp, user_id: user.id, tipoInfo: TIPOS.find(t => t.id === tipo) }
       setNegocio(n)
-      setVista('admin')
+      setSetupNegocio(false)
     }
-    setLoading(false)
   }
 
   async function agregarEmpleado(nombre, especialidad) {
@@ -87,9 +557,7 @@ export default function App() {
     try {
       const { data } = await supabase.from('empleados').insert(nuevo).select().single()
       setEmpleados(prev => [...prev, data || { ...nuevo, id: Date.now() }])
-    } catch {
-      setEmpleados(prev => [...prev, { ...nuevo, id: Date.now() }])
-    }
+    } catch { setEmpleados(prev => [...prev, { ...nuevo, id: Date.now() }]) }
   }
 
   async function cambiarEstado(emp, estado) {
@@ -102,16 +570,6 @@ export default function App() {
     try { await supabase.from('empleados').delete().eq('id', id) } catch {}
   }
 
-  async function agendarCita(datos) {
-    const nueva = { ...datos, estado: 'pendiente', negocio_id: negocio.id }
-    try {
-      const { data } = await supabase.from('citas').insert(nueva).select().single()
-      setCitas(prev => [...prev, data || { ...nueva, id: Date.now() }])
-    } catch {
-      setCitas(prev => [...prev, { ...nueva, id: Date.now() }])
-    }
-  }
-
   async function cambiarEstadoCita(id, estado) {
     setCitas(prev => prev.map(c => c.id === id ? { ...c, estado } : c))
     try { await supabase.from('citas').update({ estado }).eq('id', id) } catch {}
@@ -122,37 +580,15 @@ export default function App() {
     try { await supabase.from('citas').delete().eq('id', id) } catch {}
   }
 
+  if (loading) return <div style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', color: 'var(--muted)' }}>Cargando...</div>
+  if (setupNegocio) return <SetupNegocio onCrear={crearNegocio} />
+
   const tipoInfo = negocio?.tipoInfo || TIPOS[0]
   const hoy = new Date().toISOString().split('T')[0]
 
-  if (vista === 'setup') return <Setup onCrear={crearNegocio} loading={loading} />
-  async function hacerPedido(datos) {
-    const nuevo = { ...datos, estado: 'pendiente', negocio_id: negocio.id, id: Date.now(), fecha: new Date().toISOString() }
-    setPedidos(prev => [...prev, nuevo])
-    try { await supabase.from('pedidos').insert(nuevo) } catch {}
-  }
-
-  if (vista === 'cliente') return (
-    <ClienteView
-      negocio={negocio}
-      servicios={servicios}
-      empleados={empleados}
-      productos={productos}
-      booking={booking}
-      setBooking={setBooking}
-      carrito={carrito}
-      setCarrito={setCarrito}
-      onAgendar={agendarCita}
-      onPedido={hacerPedido}
-      onVolver={() => setVista('admin')}
-      tipoInfo={tipoInfo}
-    />
-  )
-
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
-      <header style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
+      <header style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: tipoInfo.color + '22', display: 'grid', placeItems: 'center', fontSize: 18 }}>{tipoInfo.emoji}</div>
           <div>
@@ -160,14 +596,13 @@ export default function App() {
             <div style={{ fontSize: 11, color: 'var(--muted)' }}>{tipoInfo.label}</div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Btn small ghost onClick={() => setVista('setup')}>✏️ Editar</Btn>
-          <Btn small onClick={() => setVista('cliente')} style={{ background: tipoInfo.color }}>📱 Vista cliente</Btn>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <Btn small ghost onClick={onVerDirectorio}>🌐 Ver directorio</Btn>
+          <Btn small ghost onClick={onLogout}>Salir</Btn>
         </div>
       </header>
 
-      {/* Tabs */}
-      <nav style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', padding: '0 20px' }}>
+      <nav style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', padding: '0 16px', overflowX: 'auto' }}>
         {[
           { id: 'empleados', label: '👥 Equipo' },
           { id: 'agenda', label: '📅 Agenda' },
@@ -176,45 +611,41 @@ export default function App() {
           { id: 'pedidos', label: '📦 Pedidos' },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
-            padding: '12px 16px', background: 'none', border: 'none', color: tab === t.id ? tipoInfo.color : 'var(--muted)',
+            padding: '12px 14px', background: 'none', border: 'none', color: tab === t.id ? tipoInfo.color : 'var(--muted)',
             borderBottom: tab === t.id ? `2px solid ${tipoInfo.color}` : '2px solid transparent',
-            fontWeight: tab === t.id ? 600 : 400, fontSize: 13, transition: 'all .2s'
+            fontWeight: tab === t.id ? 600 : 400, fontSize: 12, transition: 'all .2s', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0
           }}>{t.label}</button>
         ))}
       </nav>
 
       <main style={{ flex: 1, padding: 20, maxWidth: 700, margin: '0 auto', width: '100%' }}>
-        {tab === 'empleados' && (
-          <EmpleadosTab empleados={empleados} tipoInfo={tipoInfo} onCambiarEstado={cambiarEstado} onEliminar={eliminarEmpleado} onAgregar={agregarEmpleado} />
-        )}
-        {tab === 'agenda' && (
-          <AgendaTab citas={citas} empleados={empleados} hoy={hoy} diaVista={diaVista} setDiaVista={setDiaVista} onCambiarEstado={cambiarEstadoCita} onEliminar={eliminarCita} tipoInfo={tipoInfo} />
-        )}
-        {tab === 'servicios' && (
-          <ServiciosTab servicios={servicios} setServicios={setServicios} tipoInfo={tipoInfo} />
-        )}
-        {tab === 'tienda' && (
-          <TiendaAdminTab productos={productos} setProductos={setProductos} tipoInfo={tipoInfo} />
-        )}
-        {tab === 'pedidos' && (
-          <PedidosTab pedidos={pedidos} setPedidos={setPedidos} tipoInfo={tipoInfo} />
-        )}
+        {tab === 'empleados' && <EmpleadosTab empleados={empleados} tipoInfo={tipoInfo} onCambiarEstado={cambiarEstado} onEliminar={eliminarEmpleado} onAgregar={agregarEmpleado} />}
+        {tab === 'agenda' && <AgendaTab citas={citas} empleados={empleados} hoy={hoy} diaVista={diaVista} setDiaVista={setDiaVista} onCambiarEstado={cambiarEstadoCita} onEliminar={eliminarCita} tipoInfo={tipoInfo} />}
+        {tab === 'servicios' && <ServiciosTab servicios={servicios} setServicios={setServicios} tipoInfo={tipoInfo} />}
+        {tab === 'tienda' && <TiendaAdminTab productos={productos} setProductos={setProductos} tipoInfo={tipoInfo} negocio={negocio} />}
+        {tab === 'pedidos' && <PedidosTab pedidos={pedidos} setPedidos={setPedidos} tipoInfo={tipoInfo} />}
       </main>
     </div>
   )
 }
 
-// ===================== SETUP =====================
-function Setup({ onCrear, loading }) {
+// ===================== SETUP NEGOCIO =====================
+function SetupNegocio({ onCrear }) {
   const [nombre, setNombre] = useState('')
   const [tipo, setTipo] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function handleCrear() {
+    setLoading(true)
+    await onCrear(nombre, tipo, whatsapp)
+    setLoading(false)
+  }
+
   return (
-    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--bg)' }}>
-      <div style={{ marginBottom: 32, textAlign: 'center' }}>
-        <div style={{ fontFamily: 'Syne', fontSize: 36, fontWeight: 800, letterSpacing: -1 }}>Pro<span style={{ color: '#6c63ff' }}>Cita</span></div>
-        <div style={{ color: 'var(--muted)', marginTop: 6 }}>Configura tu negocio para empezar</div>
-      </div>
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ fontFamily: 'Syne', fontSize: 24, fontWeight: 800, marginBottom: 6, textAlign: 'center' }}>Configura tu negocio</div>
+      <div style={{ color: 'var(--muted)', marginBottom: 28, textAlign: 'center', fontSize: 14 }}>Esto aparecerá en el directorio para tus clientes</div>
       <div style={{ background: 'var(--surface)', borderRadius: 20, padding: 28, width: '100%', maxWidth: 420, border: '1px solid var(--border)' }}>
         <label style={{ display: 'block', marginBottom: 6, fontSize: 13, color: 'var(--muted)' }}>Nombre del negocio</label>
         <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: Barbería El Maestro"
@@ -230,16 +661,15 @@ function Setup({ onCrear, loading }) {
           {TIPOS.map(t => (
             <button key={t.id} onClick={() => setTipo(t.id)} style={{
               padding: '14px 10px', borderRadius: 12, border: `2px solid ${tipo === t.id ? t.color : 'var(--border)'}`,
-              background: tipo === t.id ? t.color + '18' : 'var(--surface2)', color: 'var(--text)', textAlign: 'center',
-              transition: 'all .2s', cursor: 'pointer'
+              background: tipo === t.id ? t.color + '18' : 'var(--surface2)', color: 'var(--text)', textAlign: 'center', transition: 'all .2s', cursor: 'pointer'
             }}>
               <div style={{ fontSize: 24, marginBottom: 4 }}>{t.emoji}</div>
               <div style={{ fontSize: 12, fontWeight: 600 }}>{t.label}</div>
             </button>
           ))}
         </div>
-        <Btn full disabled={!nombre || !tipo || loading} onClick={() => onCrear(nombre, tipo, whatsapp)} style={{ background: tipo ? TIPOS.find(t => t.id === tipo)?.color : 'var(--accent)' }}>
-          {loading ? 'Creando...' : 'Empezar →'}
+        <Btn full disabled={!nombre || !tipo || loading} onClick={handleCrear} style={{ background: tipo ? TIPOS.find(t => t.id === tipo)?.color : '#6c63ff' }}>
+          {loading ? 'Guardando...' : 'Publicar mi negocio →'}
         </Btn>
       </div>
     </div>
@@ -252,7 +682,6 @@ function EmpleadosTab({ empleados, tipoInfo, onCambiarEstado, onEliminar, onAgre
   const [nombre, setNombre] = useState('')
   const [esp, setEsp] = useState('')
   const [filtro, setFiltro] = useState('todos')
-
   const filtrados = filtro === 'todos' ? empleados : empleados.filter(e => e.estado === filtro)
 
   function handleAgregar() {
@@ -266,11 +695,10 @@ function EmpleadosTab({ empleados, tipoInfo, onCambiarEstado, onEliminar, onAgre
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
           <h2 style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 20 }}>Personal</h2>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{empleados.length} {tipoInfo.rol.toLowerCase()}s registrados</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{empleados.length} registrados</div>
         </div>
         <Btn small onClick={() => setShowForm(!showForm)} style={{ background: tipoInfo.color }}>+ Agregar</Btn>
       </div>
-
       {showForm && (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 16, marginBottom: 16 }}>
           <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder={`Nombre del ${tipoInfo.rol.toLowerCase()}`}
@@ -283,7 +711,6 @@ function EmpleadosTab({ empleados, tipoInfo, onCambiarEstado, onEliminar, onAgre
           </div>
         </div>
       )}
-
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         {['todos', 'disponible', 'ocupado', 'descanso'].map(f => (
           <button key={f} onClick={() => setFiltro(f)} style={{
@@ -293,14 +720,6 @@ function EmpleadosTab({ empleados, tipoInfo, onCambiarEstado, onEliminar, onAgre
           }}>{f}</button>
         ))}
       </div>
-
-      {filtrados.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--muted)' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>{tipoInfo.emoji}</div>
-          <div>No hay {tipoInfo.rol.toLowerCase()}s aún</div>
-        </div>
-      )}
-
       <div style={{ display: 'grid', gap: 12 }}>
         {filtrados.map((emp, i) => {
           const est = ESTADOS[emp.estado] || ESTADOS.disponible
@@ -313,13 +732,11 @@ function EmpleadosTab({ empleados, tipoInfo, onCambiarEstado, onEliminar, onAgre
                 <div style={{ fontWeight: 600, fontSize: 15 }}>{emp.nombre}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>{emp.especialidad || tipoInfo.rol}</div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <select value={emp.estado} onChange={e => onCambiarEstado(emp, e.target.value)}
-                  style={{ padding: '6px 10px', borderRadius: 8, border: `1px solid ${est.color}`, background: est.bg, color: est.color, fontSize: 12, fontWeight: 600, cursor: 'pointer', outline: 'none' }}>
-                  {Object.entries(ESTADOS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                </select>
-                <button onClick={() => onEliminar(emp.id)} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 16, cursor: 'pointer', padding: 4 }}>🗑</button>
-              </div>
+              <select value={emp.estado} onChange={e => onCambiarEstado(emp, e.target.value)}
+                style={{ padding: '6px 10px', borderRadius: 8, border: `1px solid ${est.color}`, background: est.bg, color: est.color, fontSize: 12, fontWeight: 600, cursor: 'pointer', outline: 'none' }}>
+                {Object.entries(ESTADOS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
+              <button onClick={() => onEliminar(emp.id)} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 16, cursor: 'pointer', padding: 4 }}>🗑</button>
             </div>
           )
         })}
@@ -332,7 +749,6 @@ function EmpleadosTab({ empleados, tipoInfo, onCambiarEstado, onEliminar, onAgre
 function AgendaTab({ citas, empleados, hoy, diaVista, setDiaVista, onCambiarEstado, onEliminar, tipoInfo }) {
   const [fecha, setFecha] = useState(hoy)
   const citasHoy = citas.filter(c => c.fecha === fecha)
-
   const estadoColors = { pendiente: '#fbbf24', confirmada: '#6c63ff', completada: '#4ade80', cancelada: '#f87171' }
 
   return (
@@ -344,15 +760,13 @@ function AgendaTab({ citas, empleados, hoy, diaVista, setDiaVista, onCambiarEsta
             <button key={v} onClick={() => setDiaVista(v)} style={{
               padding: '6px 14px', borderRadius: 8, border: `1px solid ${diaVista === v ? tipoInfo.color : 'var(--border)'}`,
               background: diaVista === v ? tipoInfo.color + '20' : 'transparent', color: diaVista === v ? tipoInfo.color : 'var(--muted)',
-              fontSize: 12, fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize'
+              fontSize: 12, fontWeight: 600, cursor: 'pointer'
             }}>{v === 'dia' ? '📋 Día' : '📅 Semana'}</button>
           ))}
         </div>
       </div>
-
       <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
         style={{ width: '100%', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--text)', fontSize: 14, marginBottom: 16, outline: 'none' }} />
-
       {diaVista === 'dia' ? (
         <div>
           {citasHoy.length === 0 ? (
@@ -372,16 +786,12 @@ function AgendaTab({ citas, empleados, hoy, diaVista, setDiaVista, onCambiarEsta
                         <div style={{ fontWeight: 600 }}>{cita.cliente_nombre}</div>
                         <div style={{ fontSize: 12, color: 'var(--muted)' }}>{cita.servicio} · {cita.hora} · {emp?.nombre || 'Sin asignar'}</div>
                       </div>
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 99, background: color + '22', color, fontWeight: 600 }}>{cita.estado}</span>
-                      </div>
+                      <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 99, background: color + '22', color, fontWeight: 600 }}>{cita.estado}</span>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {['confirmada', 'completada', 'cancelada'].map(s => (
                         <button key={s} onClick={() => onCambiarEstado(cita.id, s)}
-                          style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${estadoColors[s]}44`, background: estadoColors[s] + '15', color: estadoColors[s], fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
-                          {s}
-                        </button>
+                          style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${estadoColors[s]}44`, background: estadoColors[s] + '15', color: estadoColors[s], fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>{s}</button>
                       ))}
                       <button onClick={() => onEliminar(cita.id)} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', fontSize: 11, cursor: 'pointer' }}>🗑</button>
                     </div>
@@ -403,13 +813,8 @@ function SemanaView({ citas, empleados, fecha, estadoColors, tipoInfo }) {
   const day = start.getDay()
   const monday = new Date(start)
   monday.setDate(start.getDate() - (day === 0 ? 6 : day - 1))
-  const dias = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday)
-    d.setDate(monday.getDate() + i)
-    return d.toISOString().split('T')[0]
-  })
+  const dias = Array.from({ length: 7 }, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate() + i); return d.toISOString().split('T')[0] })
   const DIAS_LABEL = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
-
   return (
     <div style={{ overflowX: 'auto' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '50px repeat(7, 1fr)', minWidth: 500, gap: 1, background: 'var(--border)', borderRadius: 12, overflow: 'hidden' }}>
@@ -427,11 +832,7 @@ function SemanaView({ citas, empleados, fecha, estadoColors, tipoInfo }) {
               const cita = citas.find(c => c.fecha === d && c.hora === hora)
               return (
                 <div key={d} style={{ background: 'var(--surface)', padding: 4, minHeight: 36 }}>
-                  {cita && (
-                    <div style={{ background: (estadoColors[cita.estado] || '#fbbf24') + '30', borderRadius: 6, padding: '3px 5px', fontSize: 10, color: estadoColors[cita.estado] || '#fbbf24', fontWeight: 600, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                      {cita.cliente_nombre}
-                    </div>
-                  )}
+                  {cita && <div style={{ background: (estadoColors[cita.estado] || '#fbbf24') + '30', borderRadius: 6, padding: '3px 5px', fontSize: 10, color: estadoColors[cita.estado] || '#fbbf24', fontWeight: 600, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{cita.cliente_nombre}</div>}
                 </div>
               )
             })}
@@ -468,12 +869,7 @@ function ServiciosTab({ servicios, setServicios, tipoInfo }) {
               <button key={e} onClick={() => setForm(f => ({ ...f, emoji: e }))} style={{ width: 36, height: 36, borderRadius: 8, border: `2px solid ${form.emoji === e ? tipoInfo.color : 'var(--border)'}`, background: form.emoji === e ? tipoInfo.color + '20' : 'var(--surface2)', fontSize: 18, cursor: 'pointer' }}>{e}</button>
             ))}
           </div>
-          {[
-            { key: 'nombre', placeholder: 'Nombre del servicio' },
-            { key: 'precio', placeholder: 'Precio (RD$)', type: 'number' },
-            { key: 'duracion', placeholder: 'Duración (min)', type: 'number' },
-            { key: 'categoria', placeholder: 'Categoría' },
-          ].map(({ key, placeholder, type }) => (
+          {[{ key: 'nombre', placeholder: 'Nombre del servicio' }, { key: 'precio', placeholder: 'Precio (RD$)', type: 'number' }, { key: 'duracion', placeholder: 'Duración (min)', type: 'number' }, { key: 'categoria', placeholder: 'Categoría' }].map(({ key, placeholder, type }) => (
             <input key={key} type={type || 'text'} value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
               style={{ width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', marginBottom: 8, outline: 'none' }} />
           ))}
@@ -500,222 +896,121 @@ function ServiciosTab({ servicios, setServicios, tipoInfo }) {
   )
 }
 
-// ===================== CLIENTE VIEW =====================
-function ClienteView({ negocio, servicios, empleados, productos, booking, setBooking, carrito, setCarrito, onAgendar, onPedido, onVolver, tipoInfo }) {
-  const disponibles = empleados.filter(e => e.estado === 'disponible')
-  const hoy = new Date().toISOString().split('T')[0]
-  const [confirmado, setConfirmado] = useState(false)
-  const [tabCliente, setTabCliente] = useState('cita') // cita | tienda
-  const [pedidoConfirmado, setPedidoConfirmado] = useState(false)
+// ===================== TIENDA ADMIN =====================
+function TiendaAdminTab({ productos, setProductos, tipoInfo, negocio }) {
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ nombre: '', precio: '', stock: '', descripcion: '', categoria: '', emoji: '🧴' })
+  const EMOJIS = ['🧴', '🫙', '✂️', '💈', '🪒', '🧼', '💊', '🛍️', '📦', '🎁']
 
-  async function confirmar() {
-    if (!booking.nombre || !booking.fecha || !booking.hora || !booking.servicio || !booking.empleado) return
-    await onAgendar({
-      cliente_nombre: booking.nombre,
-      cliente_tel: booking.tel,
-      servicio: booking.servicio.nombre,
-      empleado_id: booking.empleado.id,
-      fecha: booking.fecha,
-      hora: booking.hora,
-    })
-    setConfirmado(true)
+  async function agregar() {
+    if (!form.nombre || !form.precio) return
+    const nuevo = { ...form, precio: +form.precio, stock: +form.stock || 0, negocio_id: negocio.id }
+    try {
+      const { data } = await supabase.from('productos').insert(nuevo).select().single()
+      setProductos(prev => [...prev, data || { ...nuevo, id: Date.now() }])
+    } catch { setProductos(prev => [...prev, { ...nuevo, id: Date.now() }]) }
+    setForm({ nombre: '', precio: '', stock: '', descripcion: '', categoria: '', emoji: '🧴' })
+    setShowForm(false)
   }
 
-  function abrirWhatsApp() {
-    const tel = negocio?.whatsapp ? `1${negocio.whatsapp.replace(/\D/g,'')}` : ''
-    const msg = encodeURIComponent(
-      `Hola ${negocio?.nombre} 👋\n\nAcabo de agendar una cita:\n\n` +
-      `📋 Servicio: ${booking.servicio?.nombre}\n` +
-      `👤 ${tipoInfo.rol}: ${booking.empleado?.nombre}\n` +
-      `📅 Fecha: ${booking.fecha}\n` +
-      `⏰ Hora: ${booking.hora}\n` +
-      `💰 Total: RD$${booking.servicio?.precio}\n\n` +
-      `Mi nombre: ${booking.nombre}\n` +
-      (booking.tel ? `Tel: ${booking.tel}` : '')
-    )
-    window.open(`https://wa.me/${tel}?text=${msg}`, '_blank')
-  }
-
-  if (confirmado) return (
-    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ fontSize: 64, marginBottom: 16 }}>✅</div>
-      <div style={{ fontFamily: 'Syne', fontSize: 24, fontWeight: 800, marginBottom: 8 }}>¡Cita agendada!</div>
-      <div style={{ color: 'var(--muted)', textAlign: 'center', marginBottom: 8 }}>Te esperamos el {booking.fecha} a las {booking.hora}</div>
-      <div style={{ color: 'var(--muted)', textAlign: 'center', fontSize: 13, marginBottom: 28 }}>Toca el botón para notificar al negocio por WhatsApp</div>
-
-      <button onClick={abrirWhatsApp} style={{
-        display: 'flex', alignItems: 'center', gap: 10, padding: '14px 24px',
-        background: '#25D366', borderRadius: 14, border: 'none', color: 'white',
-        fontWeight: 700, fontSize: 16, cursor: 'pointer', marginBottom: 14, width: '100%', maxWidth: 320, justifyContent: 'center'
-      }}>
-        <span style={{ fontSize: 22 }}>💬</span> Avisar por WhatsApp
-      </button>
-
-      <Btn onClick={() => { setConfirmado(false); setBooking({ paso: 1, servicio: null, empleado: null, fecha: '', hora: '', nombre: '', tel: '' }) }} ghost style={{ width: '100%', maxWidth: 320 }}>
-        Agendar otra cita
-      </Btn>
-    </div>
-  )
-
-  const totalCarrito = carrito.reduce((s, i) => s + i.precio * i.cantidad, 0)
-
-  async function confirmarPedido(nombre, tel) {
-    if (!nombre || carrito.length === 0) return
-    await onPedido({ cliente_nombre: nombre, cliente_tel: tel, items: carrito, total: totalCarrito })
-    setCarrito([])
-    setPedidoConfirmado(true)
+  async function eliminar(id) {
+    setProductos(prev => prev.filter(p => p.id !== id))
+    try { await supabase.from('productos').delete().eq('id', id) } catch {}
   }
 
   return (
-    <div style={{ minHeight: '100dvh' }}>
-      <header style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={onVolver} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 18, cursor: 'pointer' }}>←</button>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: 'Syne', fontWeight: 700 }}>{negocio?.nombre}</div>
-          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{tipoInfo.label}</div>
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div>
+          <h2 style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 20 }}>Tienda</h2>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{productos.length} productos</div>
         </div>
-        {carrito.length > 0 && (
-          <div style={{ background: tipoInfo.color, borderRadius: 99, width: 22, height: 22, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, color: 'white' }}>
-            {carrito.reduce((s, i) => s + i.cantidad, 0)}
+        <Btn small onClick={() => setShowForm(!showForm)} style={{ background: tipoInfo.color }}>+ Producto</Btn>
+      </div>
+      {showForm && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 16, marginBottom: 16 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+            {EMOJIS.map(e => (
+              <button key={e} onClick={() => setForm(f => ({ ...f, emoji: e }))} style={{ width: 38, height: 38, borderRadius: 8, border: `2px solid ${form.emoji === e ? tipoInfo.color : 'var(--border)'}`, background: form.emoji === e ? tipoInfo.color + '20' : 'var(--surface2)', fontSize: 20, cursor: 'pointer' }}>{e}</button>
+            ))}
           </div>
-        )}
-      </header>
-
-      {/* Tabs cliente */}
-      <nav style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', padding: '0 20px' }}>
-        {[{ id: 'cita', label: '📅 Agendar cita' }, { id: 'tienda', label: '🛍️ Tienda' }].map(t => (
-          <button key={t.id} onClick={() => setTabCliente(t.id)} style={{
-            padding: '12px 16px', background: 'none', border: 'none',
-            color: tabCliente === t.id ? tipoInfo.color : 'var(--muted)',
-            borderBottom: tabCliente === t.id ? `2px solid ${tipoInfo.color}` : '2px solid transparent',
-            fontWeight: tabCliente === t.id ? 600 : 400, fontSize: 13, cursor: 'pointer'
-          }}>{t.label}</button>
-        ))}
-      </nav>
-
-      <div style={{ padding: 20, maxWidth: 500, margin: '0 auto' }}>
-
-        {tabCliente === 'tienda' && (
-          <TiendaClienteView
-            productos={productos}
-            carrito={carrito}
-            setCarrito={setCarrito}
-            tipoInfo={tipoInfo}
-            negocio={negocio}
-            onConfirmar={confirmarPedido}
-            pedidoConfirmado={pedidoConfirmado}
-            setPedidoConfirmado={setPedidoConfirmado}
-            totalCarrito={totalCarrito}
-          />
-        )}
-
-        {tabCliente === 'cita' && <>
-        {/* Progress */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
-          {[1, 2, 3, 4].map(p => (
-            <div key={p} style={{ flex: 1, height: 3, borderRadius: 99, background: booking.paso >= p ? tipoInfo.color : 'var(--border)', transition: 'background .3s' }} />
+          {[{ key: 'nombre', placeholder: 'Nombre del producto' }, { key: 'descripcion', placeholder: 'Descripción breve' }, { key: 'categoria', placeholder: 'Categoría' }, { key: 'precio', placeholder: 'Precio (RD$)', type: 'number' }, { key: 'stock', placeholder: 'Stock disponible', type: 'number' }].map(({ key, placeholder, type }) => (
+            <input key={key} type={type || 'text'} value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
+              style={{ width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', marginBottom: 8, outline: 'none', fontSize: 14 }} />
           ))}
+          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            <Btn full onClick={agregar} style={{ background: tipoInfo.color }}>Guardar</Btn>
+            <Btn full ghost onClick={() => setShowForm(false)}>Cancelar</Btn>
+          </div>
         </div>
-
-        {booking.paso === 1 && (
-          <div>
-            <h3 style={{ fontFamily: 'Syne', fontWeight: 700, marginBottom: 16 }}>¿Qué servicio quieres?</h3>
-            <div style={{ display: 'grid', gap: 10 }}>
-              {servicios.map((s, i) => (
-                <button key={i} onClick={() => setBooking(b => ({ ...b, servicio: s, paso: 2 }))}
-                  style={{ background: 'var(--surface)', border: `2px solid ${booking.servicio?.nombre === s.nombre ? tipoInfo.color : 'var(--border)'}`, borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', textAlign: 'left', width: '100%' }}>
-                  <span style={{ fontSize: 28 }}>{s.emoji}</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, color: 'var(--text)' }}>{s.nombre}</div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>{s.duracion} min</div>
-                  </div>
-                  <div style={{ fontFamily: 'Syne', fontWeight: 700, color: tipoInfo.color }}>RD${s.precio}</div>
-                </button>
-              ))}
+      )}
+      <div style={{ display: 'grid', gap: 10 }}>
+        {productos.map(p => (
+          <div key={p.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: tipoInfo.color + '18', display: 'grid', placeItems: 'center', fontSize: 24, flexShrink: 0 }}>{p.emoji}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600 }}>{p.nombre}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.descripcion}</div>
+              <div style={{ fontSize: 11, color: p.stock > 0 ? '#4ade80' : '#f87171', fontWeight: 600, marginTop: 2 }}>{p.stock > 0 ? `✅ ${p.stock} en stock` : '❌ Sin stock'}</div>
+            </div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontFamily: 'Syne', fontWeight: 700, color: tipoInfo.color }}>RD${p.precio}</div>
+              <button onClick={() => eliminar(p.id)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 12, marginTop: 4 }}>🗑 Eliminar</button>
             </div>
           </div>
-        )}
+        ))}
+      </div>
+    </div>
+  )
+}
 
-        {booking.paso === 2 && (
-          <div>
-            <button onClick={() => setBooking(b => ({ ...b, paso: 1 }))} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', marginBottom: 12 }}>← Atrás</button>
-            <h3 style={{ fontFamily: 'Syne', fontWeight: 700, marginBottom: 16 }}>Elige tu {tipoInfo.rol.toLowerCase()}</h3>
-            {disponibles.length === 0 && <div style={{ color: 'var(--muted)', textAlign: 'center', padding: 20 }}>No hay {tipoInfo.rol.toLowerCase()}s disponibles ahora</div>}
-            <div style={{ display: 'grid', gap: 10 }}>
-              {disponibles.map(emp => (
-                <button key={emp.id} onClick={() => setBooking(b => ({ ...b, empleado: emp, paso: 3 }))}
-                  style={{ background: 'var(--surface)', border: `2px solid ${booking.empleado?.id === emp.id ? tipoInfo.color : 'var(--border)'}`, borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 12, background: tipoInfo.color + '22', display: 'grid', placeItems: 'center', fontFamily: 'Syne', fontWeight: 700, color: tipoInfo.color, fontSize: 16 }}>
-                    {tipoInfo.estacion[0]}{emp.numero}
-                  </div>
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontWeight: 600, color: 'var(--text)' }}>{emp.nombre}</div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>{emp.especialidad || tipoInfo.rol}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {booking.paso === 3 && (
-          <div>
-            <button onClick={() => setBooking(b => ({ ...b, paso: 2 }))} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', marginBottom: 12 }}>← Atrás</button>
-            <h3 style={{ fontFamily: 'Syne', fontWeight: 700, marginBottom: 16 }}>Fecha y hora</h3>
-            <label style={{ fontSize: 13, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>Fecha</label>
-            <input type="date" value={booking.fecha} min={hoy} onChange={e => setBooking(b => ({ ...b, fecha: e.target.value }))}
-              style={{ width: '100%', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--text)', marginBottom: 16, outline: 'none' }} />
-            <label style={{ fontSize: 13, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>Hora disponible</label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-              {HORAS.map(h => (
-                <button key={h} onClick={() => setBooking(b => ({ ...b, hora: h }))} style={{
-                  padding: '10px 6px', borderRadius: 10, border: `2px solid ${booking.hora === h ? tipoInfo.color : 'var(--border)'}`,
-                  background: booking.hora === h ? tipoInfo.color + '20' : 'var(--surface)', color: booking.hora === h ? tipoInfo.color : 'var(--text)',
-                  fontSize: 13, fontWeight: 600, cursor: 'pointer'
-                }}>{h}</button>
-              ))}
-            </div>
-            <Btn full disabled={!booking.fecha || !booking.hora} onClick={() => setBooking(b => ({ ...b, paso: 4 }))} style={{ marginTop: 20, background: tipoInfo.color }}>Continuar →</Btn>
-          </div>
-        )}
-
-        {booking.paso === 4 && (
-          <div>
-            <button onClick={() => setBooking(b => ({ ...b, paso: 3 }))} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', marginBottom: 12 }}>← Atrás</button>
-            <h3 style={{ fontFamily: 'Syne', fontWeight: 700, marginBottom: 16 }}>Tus datos</h3>
-            <input value={booking.nombre} onChange={e => setBooking(b => ({ ...b, nombre: e.target.value }))} placeholder="Tu nombre completo"
-              style={{ width: '100%', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--text)', marginBottom: 10, outline: 'none' }} />
-            <input value={booking.tel} onChange={e => setBooking(b => ({ ...b, tel: e.target.value }))} placeholder="Teléfono (opcional)"
-              style={{ width: '100%', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--text)', marginBottom: 20, outline: 'none' }} />
-
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, marginBottom: 20 }}>
-              <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 10, fontWeight: 600 }}>Resumen</div>
-              {[
-                ['Servicio', booking.servicio?.nombre],
-                [tipoInfo.rol, booking.empleado?.nombre],
-                ['Fecha', booking.fecha],
-                ['Hora', booking.hora],
-                ['Total', `RD$${booking.servicio?.precio}`],
-              ].map(([k, v]) => (
-                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 14 }}>
-                  <span style={{ color: 'var(--muted)' }}>{k}</span>
-                  <span style={{ fontWeight: 600 }}>{v}</span>
+// ===================== PEDIDOS ADMIN =====================
+function PedidosTab({ pedidos, setPedidos, tipoInfo }) {
+  const estadoColors = { pendiente: '#fbbf24', preparando: '#6c63ff', listo: '#4ade80', entregado: '#8888a0' }
+  return (
+    <div>
+      <div style={{ marginBottom: 20 }}>
+        <h2 style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 20 }}>Pedidos</h2>
+        <div style={{ fontSize: 12, color: 'var(--muted)' }}>{pedidos.filter(p => p.estado !== 'entregado').length} activos</div>
+      </div>
+      {pedidos.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--muted)' }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>📦</div>
+          <div>Sin pedidos aún</div>
+        </div>
+      )}
+      <div style={{ display: 'grid', gap: 10 }}>
+        {pedidos.map(p => {
+          const color = estadoColors[p.estado] || '#fbbf24'
+          return (
+            <div key={p.id} style={{ background: 'var(--surface)', border: `1px solid ${color}44`, borderLeft: `3px solid ${color}`, borderRadius: 12, padding: '14px 16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontWeight: 600 }}>{p.cliente_nombre}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>RD${p.total}</div>
                 </div>
+                <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 99, background: color + '22', color, fontWeight: 600 }}>{p.estado}</span>
+              </div>
+              {p.items?.map((item, i) => (
+                <div key={i} style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 2 }}>• {item.nombre} x{item.cantidad}</div>
               ))}
+              <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                {['preparando', 'listo', 'entregado'].map(s => (
+                  <button key={s} onClick={() => setPedidos(prev => prev.map(x => x.id === p.id ? { ...x, estado: s } : x))}
+                    style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${estadoColors[s]}44`, background: estadoColors[s] + '15', color: estadoColors[s], fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>{s}</button>
+                ))}
+              </div>
             </div>
-
-            <Btn full disabled={!booking.nombre} onClick={confirmar} style={{ background: tipoInfo.color }}>✅ Confirmar cita</Btn>
-          </div>
-        )}
-        </>}
+          )
+        })}
       </div>
     </div>
   )
 }
 
 // ===================== TIENDA CLIENTE =====================
-function TiendaClienteView({ productos, carrito, setCarrito, tipoInfo, negocio, onConfirmar, pedidoConfirmado, setPedidoConfirmado, totalCarrito }) {
-  const [paso, setPaso] = useState('catalogo') // catalogo | carrito | datos
+function TiendaClienteView({ productos, carrito, setCarrito, tipoInfo, negocio, onConfirmar, pedidoConfirmado, setPedidoConfirmado, totalCarrito, abrirWhatsApp }) {
+  const [paso, setPaso] = useState('catalogo')
   const [nombre, setNombre] = useState('')
   const [tel, setTel] = useState('')
 
@@ -735,37 +1030,26 @@ function TiendaClienteView({ productos, carrito, setCarrito, tipoInfo, negocio, 
     })
   }
 
-  function abrirWhatsAppPedido() {
-    const tel_neg = negocio?.whatsapp ? `1${negocio.whatsapp.replace(/\D/g,'')}` : ''
-    const lista = carrito.map(i => `• ${i.nombre} x${i.cantidad} = RD$${i.precio * i.cantidad}`).join('\n')
-    const msg = encodeURIComponent(
-      `Hola ${negocio?.nombre} 👋\n\nQuiero hacer un pedido:\n\n${lista}\n\n💰 Total: RD$${totalCarrito}\n\nMi nombre: ${nombre}\n${tel ? `Tel: ${tel}` : ''}`
-    )
-    window.open(`https://wa.me/${tel_neg}?text=${msg}`, '_blank')
-  }
-
   if (pedidoConfirmado) return (
     <div style={{ textAlign: 'center', padding: '40px 20px' }}>
       <div style={{ fontSize: 64, marginBottom: 16 }}>📦</div>
       <div style={{ fontFamily: 'Syne', fontSize: 22, fontWeight: 800, marginBottom: 8 }}>¡Pedido enviado!</div>
-      <div style={{ color: 'var(--muted)', marginBottom: 8 }}>Tu pedido por RD${totalCarrito} fue registrado</div>
-      <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 28 }}>Avisa al negocio por WhatsApp para coordinarlo</div>
-      <button onClick={abrirWhatsAppPedido} style={{
-        display: 'flex', alignItems: 'center', gap: 10, padding: '14px 24px',
-        background: '#25D366', borderRadius: 14, border: 'none', color: 'white',
-        fontWeight: 700, fontSize: 16, cursor: 'pointer', marginBottom: 14, width: '100%', justifyContent: 'center'
-      }}>💬 Avisar por WhatsApp</button>
+      <div style={{ color: 'var(--muted)', marginBottom: 28, fontSize: 14 }}>Paga cuando recoges en el local</div>
+      <button onClick={() => abrirWhatsApp(`Hola ${negocio?.nombre} 👋\n\nQuiero hacer un pedido:\n${carrito.map(i => `• ${i.nombre} x${i.cantidad} = RD$${i.precio * i.cantidad}`).join('\n')}\n\n💰 Total: RD$${totalCarrito}\n\nMi nombre: ${nombre}`)}
+        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 24px', background: '#25D366', borderRadius: 14, border: 'none', color: 'white', fontWeight: 700, fontSize: 16, cursor: 'pointer', marginBottom: 12, width: '100%', justifyContent: 'center' }}>
+        💬 Avisar por WhatsApp
+      </button>
       <Btn ghost full onClick={() => { setPedidoConfirmado(false); setPaso('catalogo') }}>Ver más productos</Btn>
     </div>
   )
 
   if (paso === 'catalogo') return (
     <div>
-      <h3 style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 20, marginBottom: 16 }}>Productos disponibles</h3>
+      <h3 style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 20, marginBottom: 16 }}>Productos</h3>
       {productos.filter(p => p.stock > 0).length === 0 && (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--muted)' }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>🛍️</div>
-          <div>No hay productos disponibles por ahora</div>
+          <div>No hay productos disponibles</div>
         </div>
       )}
       <div style={{ display: 'grid', gap: 10 }}>
@@ -815,16 +1099,16 @@ function TiendaClienteView({ productos, carrito, setCarrito, tipoInfo, negocio, 
               <div style={{ fontSize: 12, color: 'var(--muted)' }}>RD${item.precio} c/u</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button onClick={() => quitarDelCarrito(item.id)} style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${tipoInfo.color}`, background: 'transparent', color: tipoInfo.color, cursor: 'pointer', fontSize: 16 }}>-</button>
+              <button onClick={() => quitarDelCarrito(item.id)} style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${tipoInfo.color}`, background: 'transparent', color: tipoInfo.color, cursor: 'pointer', fontSize: 16, display: 'grid', placeItems: 'center' }}>-</button>
               <span style={{ fontWeight: 700, minWidth: 20, textAlign: 'center' }}>{item.cantidad}</span>
-              <button onClick={() => setCarrito(prev => prev.map(i => i.id === item.id ? { ...i, cantidad: i.cantidad + 1 } : i))} style={{ width: 28, height: 28, borderRadius: 6, border: 'none', background: tipoInfo.color, color: 'white', cursor: 'pointer', fontSize: 16 }}>+</button>
+              <button onClick={() => setCarrito(prev => prev.map(i => i.id === item.id ? { ...i, cantidad: i.cantidad + 1 } : i))} style={{ width: 28, height: 28, borderRadius: 6, border: 'none', background: tipoInfo.color, color: 'white', cursor: 'pointer', fontSize: 16, display: 'grid', placeItems: 'center' }}>+</button>
             </div>
             <div style={{ fontFamily: 'Syne', fontWeight: 700, color: tipoInfo.color, minWidth: 60, textAlign: 'right' }}>RD${item.precio * item.cantidad}</div>
           </div>
         ))}
       </div>
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontWeight: 600 }}>Total a pagar en local</span>
+        <span style={{ fontWeight: 600 }}>Total · Pago en local</span>
         <span style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: 20, color: tipoInfo.color }}>RD${totalCarrito}</span>
       </div>
       <Btn full onClick={() => setPaso('datos')} style={{ background: tipoInfo.color }}>Continuar →</Btn>
@@ -834,8 +1118,7 @@ function TiendaClienteView({ productos, carrito, setCarrito, tipoInfo, negocio, 
   if (paso === 'datos') return (
     <div>
       <button onClick={() => setPaso('carrito')} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', marginBottom: 16 }}>← Atrás</button>
-      <h3 style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 20, marginBottom: 6 }}>Tus datos</h3>
-      <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 20 }}>Pagas cuando recoges en el local</div>
+      <h3 style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 20, marginBottom: 20 }}>Tus datos</h3>
       <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Tu nombre completo"
         style={{ width: '100%', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--text)', marginBottom: 10, outline: 'none' }} />
       <input value={tel} onChange={e => setTel(e.target.value)} placeholder="Teléfono (opcional)"
@@ -851,143 +1134,12 @@ function TiendaClienteView({ productos, carrito, setCarrito, tipoInfo, negocio, 
 function Btn({ children, onClick, disabled, full, small, ghost, style = {}, ...props }) {
   return (
     <button onClick={onClick} disabled={disabled} {...props} style={{
-      padding: small ? '8px 14px' : '12px 20px',
-      borderRadius: 10, border: ghost ? '1px solid var(--border)' : 'none',
+      padding: small ? '8px 14px' : '12px 20px', borderRadius: 10,
+      border: ghost ? '1px solid var(--border)' : 'none',
       background: ghost ? 'transparent' : 'var(--accent)', color: ghost ? 'var(--muted)' : 'white',
       fontWeight: 600, fontSize: small ? 12 : 14, cursor: disabled ? 'not-allowed' : 'pointer',
       opacity: disabled ? 0.5 : 1, width: full ? '100%' : 'auto',
       fontFamily: 'inherit', transition: 'opacity .2s', ...style
     }}>{children}</button>
-  )
-}
-
-// ===================== TIENDA ADMIN =====================
-function TiendaAdminTab({ productos, setProductos, tipoInfo }) {
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ nombre: '', precio: '', stock: '', descripcion: '', categoria: '', emoji: '🧴' })
-  const EMOJIS = ['🧴', '🫙', '✂️', '💈', '🪒', '🧼', '💊', '🛍️', '📦', '🎁']
-
-  function agregar() {
-    if (!form.nombre || !form.precio) return
-    setProductos(prev => [...prev, { ...form, precio: +form.precio, stock: +form.stock || 0, id: Date.now() }])
-    setForm({ nombre: '', precio: '', stock: '', descripcion: '', categoria: '', emoji: '🧴' })
-    setShowForm(false)
-  }
-
-  return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <div>
-          <h2 style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 20 }}>Tienda</h2>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{productos.length} productos en catálogo</div>
-        </div>
-        <Btn small onClick={() => setShowForm(!showForm)} style={{ background: tipoInfo.color }}>+ Producto</Btn>
-      </div>
-
-      {showForm && (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 16, marginBottom: 16 }}>
-          <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 8, fontWeight: 600 }}>Ícono del producto</div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-            {EMOJIS.map(e => (
-              <button key={e} onClick={() => setForm(f => ({ ...f, emoji: e }))}
-                style={{ width: 38, height: 38, borderRadius: 8, border: `2px solid ${form.emoji === e ? tipoInfo.color : 'var(--border)'}`, background: form.emoji === e ? tipoInfo.color + '20' : 'var(--surface2)', fontSize: 20, cursor: 'pointer' }}>{e}</button>
-            ))}
-          </div>
-          {[
-            { key: 'nombre', placeholder: 'Nombre del producto' },
-            { key: 'descripcion', placeholder: 'Descripción breve' },
-            { key: 'categoria', placeholder: 'Categoría (Cabello, Barba, Uñas...)' },
-            { key: 'precio', placeholder: 'Precio (RD$)', type: 'number' },
-            { key: 'stock', placeholder: 'Cantidad en stock', type: 'number' },
-          ].map(({ key, placeholder, type }) => (
-            <input key={key} type={type || 'text'} value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
-              style={{ width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', marginBottom: 8, outline: 'none', fontSize: 14 }} />
-          ))}
-          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-            <Btn full onClick={agregar} style={{ background: tipoInfo.color }}>Guardar producto</Btn>
-            <Btn full ghost onClick={() => setShowForm(false)}>Cancelar</Btn>
-          </div>
-        </div>
-      )}
-
-      {productos.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--muted)' }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>🛍️</div>
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>Sin productos aún</div>
-          <div style={{ fontSize: 13 }}>Agrega productos que quieras vender a tus clientes</div>
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gap: 10 }}>
-        {productos.map((p) => (
-          <div key={p.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: tipoInfo.color + '18', display: 'grid', placeItems: 'center', fontSize: 24, flexShrink: 0 }}>{p.emoji}</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 600, fontSize: 15 }}>{p.nombre}</div>
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 2 }}>{p.descripcion}</div>
-              <div style={{ fontSize: 11, color: p.stock > 0 ? '#4ade80' : '#f87171', fontWeight: 600 }}>
-                {p.stock > 0 ? `✅ ${p.stock} en stock` : '❌ Sin stock'}
-              </div>
-            </div>
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontFamily: 'Syne', fontWeight: 700, color: tipoInfo.color, fontSize: 16 }}>RD${p.precio}</div>
-              <button onClick={() => setProductos(prev => prev.filter(x => x.id !== p.id))}
-                style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, marginTop: 4 }}>🗑 Eliminar</button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ===================== PEDIDOS ADMIN =====================
-function PedidosTab({ pedidos, setPedidos, tipoInfo }) {
-  const estadoColors = { pendiente: '#fbbf24', preparando: '#6c63ff', listo: '#4ade80', entregado: '#8888a0' }
-
-  return (
-    <div>
-      <div style={{ marginBottom: 20 }}>
-        <h2 style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 20 }}>Pedidos</h2>
-        <div style={{ fontSize: 12, color: 'var(--muted)' }}>{pedidos.filter(p => p.estado !== 'entregado').length} pedidos activos</div>
-      </div>
-
-      {pedidos.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--muted)' }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>📦</div>
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>Sin pedidos aún</div>
-          <div style={{ fontSize: 13 }}>Cuando un cliente haga un pedido aparecerá aquí</div>
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gap: 10 }}>
-        {[...pedidos].reverse().map(p => {
-          const color = estadoColors[p.estado] || '#fbbf24'
-          return (
-            <div key={p.id} style={{ background: 'var(--surface)', border: `1px solid ${color}44`, borderLeft: `3px solid ${color}`, borderRadius: 12, padding: '14px 16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 15 }}>{p.cliente_nombre}</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.items?.length || 0} producto(s) · RD${p.total}</div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{p.fecha ? new Date(p.fecha).toLocaleDateString('es-DO') : ''}</div>
-                </div>
-                <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 99, background: color + '22', color, fontWeight: 600 }}>{p.estado}</span>
-              </div>
-              {p.items?.map((item, i) => (
-                <div key={i} style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 2 }}>• {item.nombre} x{item.cantidad} — RD${item.precio * item.cantidad}</div>
-              ))}
-              <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-                {['preparando', 'listo', 'entregado'].map(s => (
-                  <button key={s} onClick={() => setPedidos(prev => prev.map(x => x.id === p.id ? { ...x, estado: s } : x))}
-                    style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${estadoColors[s]}44`, background: estadoColors[s] + '15', color: estadoColors[s], fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
   )
 }
