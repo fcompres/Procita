@@ -593,7 +593,7 @@ export default function App() {
           <div style={{padding:"24px 20px"}}>
             <button onClick={()=>setClientView("book")} style={{width:"100%",background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#080c14",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:16,padding:16,borderRadius:14,cursor:"pointer",marginBottom:20}}>📅 Reservar cita</button>
             <div style={{fontSize:13,fontWeight:700,color:"#f0ebe0",marginBottom:12}}>Servicios disponibles</div>
-            {services.length===0 && <div style={{textAlign:"center",padding:"32px 0",color:"#3a4a5a",fontFamily:"'Space Mono',monospace",fontSize:11}}>ESTE NEGOCIO AÚN NO TIENE SERVICIOS</div>}
+            {services.length===0 && <div style={{textAlign:"center",padding:"20px 0",color:"#3a4a5a",fontFamily:"'Space Mono',monospace",fontSize:11}}>ESTE NEGOCIO AÚN NO TIENE SERVICIOS</div>}
             {services.map(svc=>{
               const cc={"Corte":"#E8C547","Barba":"#F97316","Combo":"#4ECDC4","Color":"#F472B6","Uñas":"#A78BFA"}[svc.categoria]||"#60A5FA";
               return <div key={svc.id} style={{background:"#0d1525",border:"1px solid #1e2a3a",borderRadius:12,padding:"12px 14px",display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
@@ -602,6 +602,20 @@ export default function App() {
                 <div style={{fontSize:15,fontWeight:800,color:cc}}>${svc.precio}</div>
               </div>;
             })}
+            {products.length>0&&<>
+              <div style={{fontSize:13,fontWeight:700,color:"#f0ebe0",margin:"20px 0 12px",display:"flex",alignItems:"center",gap:8}}>🛍️ Productos disponibles <span style={{fontSize:10,color:"#4a5a6a",fontFamily:"'Space Mono',monospace",fontWeight:400}}>PAGO EN EL LOCAL</span></div>
+              {products.map(prod=>{
+                const cc={"Pomadas":"#E8C547","Aceites":"#F97316","Máquinas":"#4ECDC4","Esmaltes":"#F472B6","Geles":"#A78BFA","Champús":"#60A5FA"}[prod.categoria]||"#60A5FA";
+                return <div key={prod.id} style={{background:"#0d1525",border:"1px solid #1e2a3a",borderRadius:12,padding:"12px 14px",display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
+                  <div style={{fontSize:22,width:40,height:40,background:`${cc}15`,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center"}}>{prod.emoji}</div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:700,color:"#f0ebe0"}}>{prod.nombre}</div>
+                    <div style={{fontSize:10,color:"#4a5a6a",fontFamily:"'Space Mono',monospace"}}>{prod.categoria} · Stock: {prod.stock}</div>
+                  </div>
+                  <div style={{fontSize:15,fontWeight:800,color:cc}}>${prod.precio}</div>
+                </div>;
+              })}
+            </>}
           </div>
         )}
       </div>
