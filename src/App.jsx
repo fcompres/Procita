@@ -15,6 +15,13 @@ const ROLE_BY_TYPE    = { barberia:["Barbero","Aprendiz","Encargado"], salon:["E
 const STATION_BY_TYPE = { barberia:"Silla", salon:"Silla", unas:"Mesa", mixto:"Puesto" };
 const AVATAR_COLORS   = ["#E8C547","#4ECDC4","#FF6B6B","#A78BFA","#F97316","#34D399","#F472B6","#60A5FA"];
 const CATEGORIES      = ["Corte","Barba","Combo","Color","Uñas","General"];
+const PROD_CATS_BY_TYPE = {
+  barberia: ["Pomadas","Aceites","Máquinas","Navajas","Aftershave","Otro"],
+  salon:    ["Champús","Tintes","Tratamientos","Accesorios","Otro"],
+  unas:     ["Esmaltes","Geles","Nail Art","Herramientas","Otro"],
+  mixto:    ["Pomadas","Esmaltes","Champús","Accesorios","Otro"],
+};
+const PROD_EMOJIS = ["🧴","✂️","💈","🪒","💆","💅","🎨","🧼","🌿","⚡","🔥","🌟"];
 const EMOJIS          = ["✂️","⚡","🧔","💈","🎨","💅","💆","🌟","👑","🔥"];
 const HOURS           = ["9:00","9:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00"];
 const DAYS            = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
@@ -258,6 +265,10 @@ export default function App() {
   const [bookName,     setBookName]     = useState("");
   const [bookPhone,    setBookPhone]    = useState("");
   const [saving,       setSaving]       = useState(false);
+  const [products,     setProducts]     = useState([]);
+  const [showProdModal,setShowProdModal]= useState(false);
+  const [editingProd,  setEditingProd]  = useState(null);
+  const [prodForm,     setProdForm]     = useState({name:"",category:"",price:"",stock:"",emoji:"🧴",desc:""});
 
   const bizType     = BUSINESS_TYPES.find(t=>t.key===businessType)||BUSINESS_TYPES[0];
   const accentColor = bizType.color;
@@ -288,14 +299,16 @@ export default function App() {
   const loadData = async (nId) => {
     const id=nId||negocioId;
     if(!id) return;
-    const [{data:emps},{data:svcs},{data:apts}] = await Promise.all([
+    const [{data:emps},{data:svcs},{data:apts},{data:prods}] = await Promise.all([
       supabase.from("empleados").select("*").eq("negocio_id",id).order("silla"),
       supabase.from("servicios").select("*").eq("negocio_id",id).order("created_at"),
       supabase.from("citas").select("*").eq("negocio_id",id).order("fecha").order("hora"),
+      supabase.from("productos").select("*").eq("negocio_id",id).order("created_at"),
     ]);
     setEmployees(emps||[]);
     setServices(svcs||[]);
     setAppointments(apts||[]);
+    setProducts(prods||[]);
   };
 
   const handleRoleSelect = async (role) => {
@@ -353,6 +366,18 @@ export default function App() {
     setShowSvcModal(false);
   };
   const deleteSvc = async (id) => { await supabase.from("servicios").delete().eq("id",id); setServices(p=>p.filter(s=>s.id!==id)); };
+
+  // Product actions
+  const openAddProd  = ()   => { setEditingProd(null); setProdForm({name:"",category:PROD_CATS_BY_TYPE[businessType]?.[0]||"Otro",price:"",stock:"",emoji:"🧴",desc:""}); setShowProdModal(true); };
+  const openEditProd = prod => { setEditingProd(prod); setProdForm({name:prod.nombre,category:prod.categoria,price:String(prod.precio),stock:String(prod.stock||0),emoji:prod.emoji,desc:prod.descripcion||""}); setShowProdModal(true); };
+  const saveProd = async () => {
+    if(!prodForm.name.trim()||!prodForm.price) return;
+    const obj={negocio_id:negocioId,nombre:prodForm.name,categoria:prodForm.category,precio:Number(prodForm.price),stock:Number(prodForm.stock)||0,emoji:prodForm.emoji,descripcion:prodForm.desc};
+    if(editingProd){ await supabase.from("productos").update(obj).eq("id",editingProd.id); setProducts(p=>p.map(x=>x.id===editingProd.id?{...x,...obj}:x)); }
+    else{ const {data}=await supabase.from("productos").insert(obj).select().single(); if(data) setProducts(p=>[...p,data]); }
+    setShowProdModal(false);
+  };
+  const deleteProd = async (id) => { await supabase.from("productos").delete().eq("id",id); setProducts(p=>p.filter(x=>x.id!==id)); };
 
   // Appointment actions
   const openAddAppt  = ()   => { setEditingAppt(null); setApptForm({client:"",phone:"",employeeId:"",serviceId:"",date:todayStr,time:"10:00"}); setShowAppt(true); };
@@ -609,7 +634,7 @@ export default function App() {
       </div>
 
       <div style={{display:"flex",borderBottom:"1px solid #1e2a3a",padding:"0 20px",overflowX:"auto"}}>
-        {[{k:"empleados",l:`${stationWord}s`,i:"👥"},{k:"agenda",l:"Agenda",i:"📅"},{k:"servicios",l:"Servicios",i:"📋"}].map(t=>(
+        {[{k:"empleados",l:`${stationWord}s`,i:"👥"},{k:"agenda",l:"Agenda",i:"📅"},{k:"servicios",l:"Servicios",i:"📋"},{k:"productos",l:"Productos",i:"🛍️"}].map(t=>(
           <button key={t.k} onClick={()=>setActiveTab(t.k)} style={{background:"transparent",border:"none",borderBottom:activeTab===t.k?`2px solid ${accentColor}`:"2px solid transparent",color:activeTab===t.k?accentColor:"#4a5a6a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:12,padding:"12px 14px 10px",cursor:"pointer",marginBottom:-1,whiteSpace:"nowrap"}}>{t.i} {t.l}</button>
         ))}
       </div>
@@ -763,7 +788,74 @@ export default function App() {
         </div>
       </div>}
 
-      {/* MODAL EMPLEADO */}
+      {/* PRODUCTOS */}
+      {activeTab==="productos"&&<div style={{padding:"18px 20px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <div>
+            <div style={{fontSize:15,fontWeight:800,color:"#f0ebe0"}}>Productos en venta</div>
+            <div style={{fontSize:10,color:"#4a5a6a",fontFamily:"'Space Mono',monospace",marginTop:2}}>EL CLIENTE PAGA EN EL LOCAL</div>
+          </div>
+          <button onClick={openAddProd} style={{background:`linear-gradient(135deg,${accentColor},${accentColor}cc)`,border:"none",color:"#080c14",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 16px",borderRadius:10,cursor:"pointer"}}>+ Nuevo producto</button>
+        </div>
+        {products.length===0&&<div style={{textAlign:"center",padding:"40px 0"}}>
+          <div style={{fontSize:40,marginBottom:12}}>🛍️</div>
+          <div style={{fontSize:13,fontWeight:700,color:"#c8c0b0",marginBottom:6}}>Sin productos aún</div>
+          <div style={{fontSize:11,color:"#3a4a5a",fontFamily:"'Space Mono',monospace"}}>AGREGA POMADAS, ESMALTES, ACCESORIOS Y MÁS</div>
+        </div>}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:14}}>
+          {products.map(prod=>{
+            const cc={"Pomadas":"#E8C547","Aceites":"#F97316","Máquinas":"#4ECDC4","Esmaltes":"#F472B6","Geles":"#A78BFA","Champús":"#60A5FA","Tintes":"#FF6B6B"}[prod.categoria]||"#60A5FA";
+            return <div key={prod.id} style={{background:"#0d1525",border:"1px solid #1e2a3a",borderRadius:16,overflow:"hidden"}}>
+              <div style={{background:`${cc}12`,borderBottom:`1px solid ${cc}20`,padding:"16px",display:"flex",alignItems:"center",gap:12}}>
+                <div style={{fontSize:32,width:52,height:52,background:`${cc}20`,borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center"}}>{prod.emoji}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:"#f0ebe0"}}>{prod.nombre}</div>
+                  <div style={{display:"inline-block",background:`${cc}20`,borderRadius:20,padding:"2px 10px",fontSize:9,color:cc,marginTop:4,fontFamily:"'Space Mono',monospace"}}>{prod.categoria}</div>
+                </div>
+              </div>
+              <div style={{padding:"12px 16px"}}>
+                <div style={{fontSize:10,color:"#4a5a6a",marginBottom:10,lineHeight:1.5}}>{prod.descripcion}</div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                  <div>
+                    <div style={{fontSize:18,fontWeight:800,color:accentColor}}>${prod.precio}</div>
+                    <div style={{fontSize:9,color:"#3a4a5a",fontFamily:"'Space Mono',monospace"}}>📦 Stock: {prod.stock}</div>
+                  </div>
+                  <div style={{display:"flex",gap:6}}>
+                    <button onClick={()=>openEditProd(prod)} style={{background:"#1e2a3a",border:"none",color:"#c8c0b0",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11,fontFamily:"'Syne',sans-serif",fontWeight:600}}>Editar</button>
+                    <button onClick={()=>deleteProd(prod.id)} style={{background:"transparent",border:"1px solid #FF6B6B25",color:"#FF6B6B60",borderRadius:8,padding:"6px 8px",cursor:"pointer",fontSize:11}}>✕</button>
+                  </div>
+                </div>
+              </div>
+            </div>;
+          })}
+        </div>
+      </div>}
+
+      {/* MODAL PRODUCTO */}
+      {showProdModal&&<div style={{position:"fixed",inset:0,background:"#000000cc",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,padding:20}} onClick={()=>setShowProdModal(false)}>
+        <div style={{background:"#0d1525",border:"1px solid #1e2a3a",borderRadius:20,padding:"24px 20px",width:"100%",maxWidth:440,maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+          <div style={{fontSize:16,fontWeight:800,color:"#f0ebe0",marginBottom:20}}>{editingProd?"Editar producto":"Nuevo producto"}</div>
+          <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
+            <div>
+              <div style={{fontSize:9,color:"#4a5a6a",fontFamily:"'Space Mono',monospace",marginBottom:6}}>EMOJI</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{PROD_EMOJIS.map(e=><button key={e} onClick={()=>setProdForm(f=>({...f,emoji:e}))} style={{width:38,height:38,background:prodForm.emoji===e?`${accentColor}20`:"#080c14",border:`1px solid ${prodForm.emoji===e?accentColor:"#1e2a3a"}`,borderRadius:10,cursor:"pointer",fontSize:18}}>{e}</button>)}</div>
+            </div>
+            <input value={prodForm.name} onChange={e=>setProdForm(f=>({...f,name:e.target.value}))} placeholder="Nombre del producto *" style={inp()}/>
+            <select value={prodForm.category} onChange={e=>setProdForm(f=>({...f,category:e.target.value}))} style={inp()}>
+              {(PROD_CATS_BY_TYPE[businessType]||["Otro"]).map(c=><option key={c} value={c}>{c}</option>)}
+            </select>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <input type="number" value={prodForm.price} onChange={e=>setProdForm(f=>({...f,price:e.target.value}))} placeholder="Precio $" style={inp()}/>
+              <input type="number" value={prodForm.stock} onChange={e=>setProdForm(f=>({...f,stock:e.target.value}))} placeholder="Stock" style={inp()}/>
+            </div>
+            <textarea value={prodForm.desc} onChange={e=>setProdForm(f=>({...f,desc:e.target.value}))} placeholder="Descripción (opcional)" rows={2} style={inp({resize:"none"})}/>
+          </div>
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={()=>setShowProdModal(false)} style={{flex:1,background:"transparent",border:"1px solid #1e2a3a",color:"#4a5a6a",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Cancelar</button>
+            <button onClick={saveProd} style={{flex:2,background:`linear-gradient(135deg,${accentColor},${accentColor}cc)`,border:"none",color:"#080c14",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Guardar</button>
+          </div>
+        </div>
+      </div>}
       {showAddEmp&&<div style={{position:"fixed",inset:0,background:"#000000cc",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:100}} onClick={()=>setShowAddEmp(false)}>
         <div style={{background:"#0d1525",border:"1px solid #1e2a3a",borderRadius:"20px 20px 0 0",padding:"24px 20px 36px",width:"100%",maxWidth:480}} onClick={e=>e.stopPropagation()}>
           <div style={{width:36,height:4,background:"#1e2a3a",borderRadius:2,margin:"0 auto 20px"}}/>
