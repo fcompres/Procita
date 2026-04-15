@@ -725,6 +725,11 @@ export default function App() {
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                     <div>
                       <div style={{fontSize:14,fontWeight:700,color:"#f0ebe0"}}>{appt.cliente_nombre}</div>
+                      {appt.cliente_telefono&&<div style={{display:"flex",alignItems:"center",gap:6,marginTop:3}}>
+                        <span style={{fontSize:11,color:"#4a5a6a"}}>📱 {appt.cliente_telefono}</span>
+                        <a href={`tel:${appt.cliente_telefono}`} onClick={e=>e.stopPropagation()} style={{background:"#4ECDC415",border:"1px solid #4ECDC430",borderRadius:6,padding:"2px 7px",fontSize:9,color:"#4ECDC4",textDecoration:"none",fontFamily:"'Space Mono',monospace"}}>LLAMAR</a>
+                        <a href={`https://wa.me/1${appt.cliente_telefono.replace(/[^0-9]/g,"")}`} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{background:"#25D36615",border:"1px solid #25D36630",borderRadius:6,padding:"2px 7px",fontSize:9,color:"#25D366",textDecoration:"none",fontFamily:"'Space Mono',monospace"}}>WA</a>
+                      </div>}
                       <div style={{fontSize:11,color:"#4a5a6a",marginTop:2}}>{svc?.emoji} {svc?.nombre} · {svc?.duracion}min</div>
                       {emp&&<div style={{fontSize:10,color:emp.color,marginTop:2}}>{emp.nombre}</div>}
                     </div>
