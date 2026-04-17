@@ -31,13 +31,14 @@ const today           = new Date();
 const todayStr        = today.toISOString().split("T")[0];
 const weekDates       = Array.from({length:7},(_,i)=>{ const d=new Date(today); d.setDate(today.getDate()-today.getDay()+i); return d.toISOString().split("T")[0]; });
 
-const inp = (extra={}) => ({ background:"#080c14", border:"1px solid #1e2a3a", borderRadius:10, padding:"11px 14px", color:"#f0ebe0", fontFamily:"'Syne',sans-serif", fontSize:13, outline:"none", width:"100%", boxSizing:"border-box", ...extra });
-const sharedBg = { minHeight:"100vh", background:"#080c14", color:"#e8e0d0", fontFamily:"'Syne',sans-serif", backgroundImage:"radial-gradient(ellipse at 20% 50%, #0d1f3c33 0%, transparent 50%)" };
+const inp = (extra={}) => ({ background:"#f8f9fb", border:"1px solid #e2e8f0", borderRadius:10, padding:"11px 14px", color:"#1a202c", fontFamily:"'Syne',sans-serif", fontSize:13, outline:"none", width:"100%", boxSizing:"border-box", ...extra });
+const sharedBg = { minHeight:"100vh", background:"#f0f4f8", color:"#1a202c", fontFamily:"'Syne',sans-serif" };
+const card = { background:"#ffffff", borderRadius:16, boxShadow:"0 2px 12px #00000010", border:"1px solid #e8edf5" };
 
 function Loader({ text="Cargando..." }) {
-  return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#080c14",flexDirection:"column",gap:12}}>
-    <div style={{width:40,height:40,border:"3px solid #1e2a3a",borderTop:"3px solid #E8C547",borderRadius:"50%",animation:"spin 1s linear infinite"}}/>
-    <div style={{color:"#4a5a6a",fontFamily:"'Space Mono',monospace",fontSize:12}}>{text}</div>
+  return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#f0f4f8",flexDirection:"column",gap:12}}>
+    <div style={{width:40,height:40,border:"3px solid #e2e8f0",borderTop:"3px solid #E8C547",borderRadius:"50%",animation:"spin 1s linear infinite"}}/>
+    <div style={{color:"#64748b",fontFamily:"'Space Mono',monospace",fontSize:12}}>{text}</div>
     <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
   </div>;
 }
@@ -59,64 +60,48 @@ function AuthScreen({ onGuest }) {
   return (
     <div style={{...sharedBg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"32px 20px"}}>
       <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
       {/* Logo */}
       <div style={{textAlign:"center", marginBottom:40}}>
-        <div style={{width:72,height:72,background:"linear-gradient(135deg,#E8C547,#f0a500)",borderRadius:20,display:"flex",alignItems:"center",justifyContent:"center",fontSize:34,margin:"0 auto 16px",boxShadow:"0 8px 40px #E8C54740"}}>✂</div>
-        <div style={{fontSize:28,fontWeight:800,color:"#f0ebe0",letterSpacing:"-1px"}}>ProCita</div>
-        <div style={{fontSize:12,color:"#4a5a6a",marginTop:6,fontFamily:"'Space Mono',monospace"}}>RESERVAS PARA BARBERÍAS Y SALONES</div>
+        <div style={{width:80,height:80,background:"linear-gradient(135deg,#E8C547,#f0a500)",borderRadius:24,display:"flex",alignItems:"center",justifyContent:"center",fontSize:38,margin:"0 auto 16px",boxShadow:"0 8px 40px #E8C54750"}}>✂</div>
+        <div style={{fontSize:32,fontWeight:800,color:"#1a202c",letterSpacing:"-1px"}}>ProCita</div>
+        <div style={{fontSize:12,color:"#64748b",marginTop:6,fontFamily:"'Space Mono',monospace"}}>RESERVAS PARA BARBERÍAS Y SALONES</div>
       </div>
 
       <div style={{width:"100%",maxWidth:400}}>
-        {/* Google login */}
-        <button onClick={loginGoogle} disabled={loading} style={{
-          width:"100%", background:"#ffffff", border:"none", borderRadius:14,
-          padding:"15px 20px", display:"flex", alignItems:"center", justifyContent:"center",
-          gap:12, cursor:"pointer", marginBottom:12, boxShadow:"0 4px 20px #00000040",
-          transition:"all .2s", opacity:loading?0.7:1
-        }}>
-          {/* Google icon SVG */}
+        <button onClick={loginGoogle} disabled={loading} style={{width:"100%",background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:14,padding:"15px 20px",display:"flex",alignItems:"center",justifyContent:"center",gap:12,cursor:"pointer",marginBottom:12,boxShadow:"0 2px 12px #00000015",transition:"all .2s",opacity:loading?0.7:1}}>
           <svg width="20" height="20" viewBox="0 0 48 48">
             <path fill="#FFC107" d="M43.6 20H24v8h11.3C33.6 33.6 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 2.9l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 19.6-8 19.6-20 0-1.3-.1-2.7-.4-4z"/>
             <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 15.5 18.9 12 24 12c3.1 0 5.8 1.1 7.9 2.9l5.7-5.7C34.1 6.5 29.3 4 24 4c-7.6 0-14.2 4.1-17.7 10.7z"/>
             <path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.4 35.5 26.8 36 24 36c-5.2 0-9.6-3.3-11.2-8H6.3C9.7 39.5 16.4 44 24 44z"/>
             <path fill="#1976D2" d="M43.6 20H24v8h11.3c-.9 2.5-2.5 4.6-4.6 6l6.2 5.2C40.7 36.3 44 30.6 44 24c0-1.3-.1-2.7-.4-4z"/>
           </svg>
-          <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:15,color:"#1a1a1a"}}>
-            {loading ? "Conectando..." : "Continuar con Google"}
-          </span>
+          <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:15,color:"#1a202c"}}>{loading?"Conectando...":"Continuar con Google"}</span>
         </button>
 
-        {/* Divider */}
         <div style={{display:"flex",alignItems:"center",gap:12,margin:"16px 0"}}>
-          <div style={{flex:1,height:1,background:"#1e2a3a"}}/>
-          <div style={{fontSize:11,color:"#3a4a5a",fontFamily:"'Space Mono',monospace"}}>O</div>
-          <div style={{flex:1,height:1,background:"#1e2a3a"}}/>
+          <div style={{flex:1,height:1,background:"#e2e8f0"}}/>
+          <div style={{fontSize:11,color:"#94a3b8",fontFamily:"'Space Mono',monospace"}}>O</div>
+          <div style={{flex:1,height:1,background:"#e2e8f0"}}/>
         </div>
 
-        {/* Guest mode */}
-        <button onClick={onGuest} style={{
-          width:"100%", background:"transparent", border:"1px solid #1e2a3a",
-          borderRadius:14, padding:"15px 20px", display:"flex", alignItems:"center",
-          justifyContent:"center", gap:10, cursor:"pointer", marginBottom:24,
-          transition:"all .2s"
-        }}>
+        <button onClick={onGuest} style={{width:"100%",background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:14,padding:"15px 20px",display:"flex",alignItems:"center",justifyContent:"center",gap:10,cursor:"pointer",marginBottom:24,boxShadow:"0 2px 8px #00000010"}}>
           <span style={{fontSize:20}}>👤</span>
           <div style={{textAlign:"left"}}>
-            <div style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:14,color:"#c8c0b0"}}>Entrar como invitado</div>
-            <div style={{fontFamily:"'Space Mono',monospace",fontSize:10,color:"#3a4a5a",marginTop:2}}>SIN REGISTRO · SOLO PARA CLIENTES</div>
+            <div style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:14,color:"#374151"}}>Entrar como invitado</div>
+            <div style={{fontFamily:"'Space Mono',monospace",fontSize:10,color:"#94a3b8",marginTop:2}}>SIN REGISTRO · SOLO PARA CLIENTES</div>
           </div>
         </button>
 
-        {msg && <div style={{background:"#FF6B6B15",border:"1px solid #FF6B6B30",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#FF6B6B",textAlign:"center",marginBottom:16}}>{msg}</div>}
+        {msg && <div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#DC2626",textAlign:"center",marginBottom:16}}>{msg}</div>}
 
-        {/* Info */}
-        <div style={{background:"#0d1525",border:"1px solid #1e2a3a",borderRadius:14,padding:"16px"}}>
-          <div style={{fontSize:11,fontWeight:700,color:"#f0ebe0",marginBottom:10}}>¿Por qué registrarse?</div>
+        <div style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:14,padding:"16px",boxShadow:"0 2px 8px #00000008"}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#374151",marginBottom:10}}>¿Por qué registrarse?</div>
           {[["✅","Guarda tu historial de citas"],["🏪","Registra tu negocio y gestiona todo"],["🔔","Recibe recordatorios"],["💾","Tus datos seguros y sincronizados"]].map(([i,t])=>(
             <div key={t} style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
               <span style={{fontSize:14}}>{i}</span>
-              <span style={{fontSize:12,color:"#4a5a6a"}}>{t}</span>
+              <span style={{fontSize:12,color:"#64748b"}}>{t}</span>
             </div>
           ))}
         </div>
@@ -132,21 +117,21 @@ function RoleSelector({ user, onSelect }) {
       <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
       <div style={{textAlign:"center",marginBottom:32}}>
         <div style={{fontSize:28,marginBottom:8}}>👋</div>
-        <div style={{fontSize:20,fontWeight:800,color:"#f0ebe0"}}>¡Hola{user?.user_metadata?.name ? `, ${user.user_metadata.name.split(" ")[0]}` : ""}!</div>
-        <div style={{fontSize:12,color:"#4a5a6a",marginTop:6,fontFamily:"'Space Mono',monospace"}}>¿CÓMO VAS A USAR PROCITA?</div>
+        <div style={{fontSize:22,fontWeight:800,color:"#1a202c"}}>¡Hola{user?.user_metadata?.name ? `, ${user.user_metadata.name.split(" ")[0]}` : ""}!</div>
+        <div style={{fontSize:12,color:"#64748b",marginTop:6,fontFamily:"'Space Mono',monospace"}}>¿CÓMO VAS A USAR PROCITA?</div>
       </div>
       <div style={{width:"100%",maxWidth:400,display:"flex",flexDirection:"column",gap:14}}>
-        <div onClick={()=>onSelect("cliente")} style={{background:"#0d1525",border:"1px solid #4ECDC430",borderRadius:18,padding:"24px 20px",cursor:"pointer",transition:"all .2s"}}>
+        <div onClick={()=>onSelect("cliente")} style={{...card,padding:"24px 20px",cursor:"pointer",transition:"all .2s",borderLeft:"4px solid #4ECDC4"}}>
           <div style={{fontSize:36,marginBottom:10}}>📅</div>
-          <div style={{fontSize:17,fontWeight:800,color:"#f0ebe0",marginBottom:4}}>Soy cliente</div>
-          <div style={{fontSize:12,color:"#4a5a6a",lineHeight:1.5}}>Quiero reservar citas en barberías, salones y centros de uñas cercanos.</div>
-          <div style={{marginTop:12,display:"inline-block",background:"#4ECDC415",border:"1px solid #4ECDC430",borderRadius:20,padding:"4px 14px",fontSize:10,color:"#4ECDC4",fontFamily:"'Space Mono',monospace"}}>VER NEGOCIOS →</div>
+          <div style={{fontSize:17,fontWeight:800,color:"#1a202c",marginBottom:4}}>Soy cliente</div>
+          <div style={{fontSize:12,color:"#64748b",lineHeight:1.5}}>Quiero reservar citas en barberías, salones y centros de uñas.</div>
+          <div style={{marginTop:12,display:"inline-block",background:"#4ECDC415",border:"1px solid #4ECDC440",borderRadius:20,padding:"4px 14px",fontSize:10,color:"#0e9f8f",fontFamily:"'Space Mono',monospace"}}>VER NEGOCIOS →</div>
         </div>
-        <div onClick={()=>onSelect("negocio")} style={{background:"#0d1525",border:"1px solid #E8C54730",borderRadius:18,padding:"24px 20px",cursor:"pointer",transition:"all .2s"}}>
+        <div onClick={()=>onSelect("negocio")} style={{...card,padding:"24px 20px",cursor:"pointer",transition:"all .2s",borderLeft:"4px solid #E8C547"}}>
           <div style={{fontSize:36,marginBottom:10}}>🏪</div>
-          <div style={{fontSize:17,fontWeight:800,color:"#f0ebe0",marginBottom:4}}>Soy dueño de negocio</div>
-          <div style={{fontSize:12,color:"#4a5a6a",lineHeight:1.5}}>Quiero registrar mi barbería, salón o centro de uñas y gestionar mis citas y empleados.</div>
-          <div style={{marginTop:12,display:"inline-block",background:"#E8C54715",border:"1px solid #E8C54730",borderRadius:20,padding:"4px 14px",fontSize:10,color:"#E8C547",fontFamily:"'Space Mono',monospace"}}>GESTIONAR MI NEGOCIO →</div>
+          <div style={{fontSize:17,fontWeight:800,color:"#1a202c",marginBottom:4}}>Soy dueño de negocio</div>
+          <div style={{fontSize:12,color:"#64748b",lineHeight:1.5}}>Quiero registrar mi barbería, salón o centro de uñas y gestionar mis citas.</div>
+          <div style={{marginTop:12,display:"inline-block",background:"#E8C54715",border:"1px solid #E8C54740",borderRadius:20,padding:"4px 14px",fontSize:10,color:"#b45309",fontFamily:"'Space Mono',monospace"}}>GESTIONAR MI NEGOCIO →</div>
         </div>
       </div>
     </div>
@@ -161,39 +146,37 @@ function Directory({ negocios, onSelect, user, onLogout, isGuest }) {
   return (
     <div style={sharedBg}>
       <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
-      <div style={{borderBottom:"1px solid #1e2a3a",padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <div style={{background:"#ffffff",borderBottom:"1px solid #e2e8f0",padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"0 2px 8px #00000008"}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <div style={{width:36,height:36,background:"linear-gradient(135deg,#E8C547,#f0a500)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:"#080c14"}}>✂</div>
+          <div style={{width:36,height:36,background:"linear-gradient(135deg,#E8C547,#f0a500)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:"#ffffff"}}>✂</div>
           <div>
-            <div style={{fontSize:16,fontWeight:800,color:"#f0ebe0"}}>ProCita</div>
-            <div style={{fontSize:9,color:"#4a5a6a",fontFamily:"'Space Mono',monospace"}}>{isGuest?"MODO INVITADO":"CLIENTE"}</div>
+            <div style={{fontSize:16,fontWeight:800,color:"#1a202c"}}>ProCita</div>
+            <div style={{fontSize:9,color:"#94a3b8",fontFamily:"'Space Mono',monospace"}}>{isGuest?"MODO INVITADO":"CLIENTE"}</div>
           </div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
-          {isGuest && <div style={{background:"#E8C54715",border:"1px solid #E8C54730",borderRadius:20,padding:"4px 10px",fontSize:9,color:"#E8C547",fontFamily:"'Space Mono',monospace"}}>INVITADO</div>}
-          {!isGuest && user?.user_metadata?.picture && <img src={user.user_metadata.picture} style={{width:30,height:30,borderRadius:"50%",border:"2px solid #1e2a3a"}} alt="avatar"/>}
-          <button onClick={onLogout} style={{background:"transparent",border:"1px solid #1e2a3a",color:"#4a5a6a",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>Salir</button>
+          {isGuest && <div style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:20,padding:"4px 10px",fontSize:9,color:"#92400E",fontFamily:"'Space Mono',monospace"}}>INVITADO</div>}
+          {!isGuest && user?.user_metadata?.picture && <img src={user.user_metadata.picture} style={{width:30,height:30,borderRadius:"50%",border:"2px solid #e2e8f0"}} alt="avatar"/>}
+          <button onClick={onLogout} style={{background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>Salir</button>
         </div>
       </div>
 
       <div style={{padding:"20px"}}>
         <div style={{marginBottom:20}}>
-          <div style={{fontSize:18,fontWeight:800,color:"#f0ebe0",marginBottom:4}}>Elige tu negocio</div>
-          <div style={{fontSize:12,color:"#4a5a6a"}}>{negocios.length} negocios disponibles</div>
+          <div style={{fontSize:20,fontWeight:800,color:"#1a202c",marginBottom:4}}>Elige tu negocio</div>
+          <div style={{fontSize:12,color:"#64748b"}}>{negocios.length} negocios disponibles</div>
         </div>
 
-        {/* Filters */}
         <div style={{display:"flex",gap:8,marginBottom:20,overflowX:"auto",paddingBottom:4}}>
           {[{k:"todos",l:"Todos",i:"🌟"},{k:"barberia",l:"Barberías",i:"✂️"},{k:"salon",l:"Salones",i:"💇"},{k:"unas",l:"Uñas",i:"💅"},{k:"mixto",l:"Mixtos",i:"✨"}].map(f=>(
-            <button key={f.k} onClick={()=>setFilter(f.k)} style={{background:filter===f.k?"#E8C54720":"transparent",border:`1px solid ${filter===f.k?"#E8C547":"#1e2a3a"}`,color:filter===f.k?"#E8C547":"#4a5a6a",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:11,padding:"7px 14px",borderRadius:20,cursor:"pointer",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:5}}>
+            <button key={f.k} onClick={()=>setFilter(f.k)} style={{background:filter===f.k?"#E8C547":"#ffffff",border:`1px solid ${filter===f.k?"#E8C547":"#e2e8f0"}`,color:filter===f.k?"#1a202c":"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:11,padding:"7px 14px",borderRadius:20,cursor:"pointer",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:5,boxShadow:"0 1px 4px #00000010"}}>
               {f.i} {f.l}
             </button>
           ))}
         </div>
 
-        {/* Business list */}
         {filtered.length===0 ? (
-          <div style={{textAlign:"center",padding:"48px 0",color:"#3a4a5a"}}>
+          <div style={{textAlign:"center",padding:"48px 0",color:"#94a3b8"}}>
             <div style={{fontSize:40,marginBottom:12}}>🏪</div>
             <div style={{fontFamily:"'Space Mono',monospace",fontSize:11}}>AÚN NO HAY NEGOCIOS REGISTRADOS</div>
           </div>
@@ -202,18 +185,20 @@ function Directory({ negocios, onSelect, user, onLogout, isGuest }) {
             {filtered.map(neg=>{
               const bt=BUSINESS_TYPES.find(t=>t.key===neg.tipo)||BUSINESS_TYPES[0];
               return (
-                <div key={neg.id} onClick={()=>onSelect(neg)} style={{background:"#0d1525",border:"1px solid #1e2a3a",borderRadius:18,overflow:"hidden",cursor:"pointer",transition:"all .2s"}}>
-                  <div style={{background:`${bt.color}12`,borderBottom:`1px solid ${bt.color}20`,padding:"18px 18px 14px",display:"flex",alignItems:"center",gap:14}}>
-                    <div style={{width:52,height:52,background:`${bt.color}20`,border:`2px solid ${bt.color}40`,borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>{bt.icon}</div>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:16,fontWeight:800,color:"#f0ebe0"}}>{neg.nombre}</div>
-                      <div style={{display:"inline-block",background:`${bt.color}15`,border:`1px solid ${bt.color}25`,borderRadius:20,padding:"2px 10px",fontSize:9,color:bt.color,marginTop:4,fontFamily:"'Space Mono',monospace"}}>{bt.label.toUpperCase()}</div>
+                <div key={neg.id} onClick={()=>onSelect(neg)} style={{...card,overflow:"hidden",cursor:"pointer",transition:"all .2s"}}>
+                  <div style={{background:`linear-gradient(135deg,${bt.color}20,${bt.color}08)`,borderBottom:`1px solid ${bt.color}20`,padding:"18px 18px 14px",display:"flex",alignItems:"center",gap:14}}>
+                    <div style={{width:56,height:56,background:neg.foto_url?`url(${neg.foto_url}) center/cover`:`${bt.color}20`,border:`2px solid ${bt.color}40`,borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,flexShrink:0,backgroundSize:"cover",backgroundPosition:"center",overflow:"hidden"}}>
+                      {!neg.foto_url && bt.icon}
                     </div>
-                    <div style={{color:"#3a4a5a",fontSize:20}}>›</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:16,fontWeight:800,color:"#1a202c"}}>{neg.nombre}</div>
+                      <div style={{display:"inline-block",background:`${bt.color}20`,border:`1px solid ${bt.color}30`,borderRadius:20,padding:"2px 10px",fontSize:9,color:bt.color,marginTop:4,fontFamily:"'Space Mono',monospace"}}>{bt.label.toUpperCase()}</div>
+                    </div>
+                    <div style={{color:"#94a3b8",fontSize:20}}>›</div>
                   </div>
                   <div style={{padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <div style={{fontSize:11,color:"#4a5a6a"}}>Toca para ver servicios y reservar</div>
-                    <div style={{background:`${bt.color}15`,border:`1px solid ${bt.color}30`,borderRadius:20,padding:"4px 12px",fontSize:10,color:bt.color,fontFamily:"'Syne',sans-serif",fontWeight:600}}>Reservar →</div>
+                    <div style={{fontSize:11,color:"#64748b"}}>Toca para ver servicios y reservar</div>
+                    <div style={{background:bt.color,borderRadius:20,padding:"5px 14px",fontSize:10,color:"#1a202c",fontFamily:"'Syne',sans-serif",fontWeight:700}}>Reservar →</div>
                   </div>
                 </div>
               );
@@ -265,6 +250,8 @@ export default function App() {
   const [bookName,     setBookName]     = useState("");
   const [bookPhone,    setBookPhone]    = useState("");
   const [saving,       setSaving]       = useState(false);
+  const [negocioFoto,  setNegocioFoto]  = useState(null);
+  const [newApptAlert, setNewApptAlert] = useState(0);
   const [products,     setProducts]     = useState([]);
   const [showProdModal,setShowProdModal]= useState(false);
   const [editingProd,  setEditingProd]  = useState(null);
@@ -319,7 +306,7 @@ export default function App() {
     } else {
       // Check if user already has a business
       const {data} = await supabase.from("negocios").select("*").eq("user_id",user.id).single();
-      if(data){ setNegocioId(data.id); setBusinessName(data.nombre); setBusinessType(data.tipo); await loadData(data.id); setScreen("dashboard"); }
+      if(data){ setNegocioId(data.id); setBusinessName(data.nombre); setBusinessType(data.tipo); setNegocioFoto(data.foto_url||null); await loadData(data.id); setScreen("dashboard"); }
       else setScreen("setup");
     }
   };
@@ -386,7 +373,7 @@ export default function App() {
     if(!apptForm.client.trim()) return;
     const obj={negocio_id:negocioId,cliente_nombre:apptForm.client,cliente_telefono:apptForm.phone,empleado_id:apptForm.employeeId||null,servicio_id:apptForm.serviceId||null,fecha:apptForm.date,hora:apptForm.time,status:"pendiente"};
     if(editingAppt){ await supabase.from("citas").update(obj).eq("id",editingAppt.id); setAppointments(p=>p.map(a=>a.id===editingAppt.id?{...a,...obj}:a)); }
-    else{ const {data}=await supabase.from("citas").insert(obj).select().single(); if(data) setAppointments(p=>[...p,data]); }
+    else{ const {data}=await supabase.from("citas").insert(obj).select().single(); if(data){ setAppointments(p=>[...p,data]); setNewApptAlert(n=>n+1); } }
     setShowAppt(false);
   };
   const deleteAppt = async (id) => { await supabase.from("citas").delete().eq("id",id); setAppointments(p=>p.filter(a=>a.id!==id)); };
@@ -398,7 +385,7 @@ export default function App() {
     const nId = selectedNeg?.id||negocioId;
     const obj={negocio_id:nId,cliente_nombre:bookName,cliente_telefono:bookPhone,empleado_id:bookEmployee?.id||null,servicio_id:bookService?.id||null,fecha:bookDate,hora:bookTime,status:"pendiente"};
     const {data}=await supabase.from("citas").insert(obj).select().single();
-    if(data) setAppointments(p=>[...p,data]);
+    if(data){ setAppointments(p=>[...p,data]); setNewApptAlert(n=>n+1); }
     setClientView("confirm");
   };
 
@@ -626,30 +613,43 @@ export default function App() {
   return (
     <div style={sharedBg}>
       <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
-      <div style={{borderBottom:"1px solid #1e2a3a",padding:"14px 20px"}}>
+      <style>{`.tooltip{position:relative}.tooltip:hover::after{content:attr(data-tip);position:absolute;bottom:110%;left:50%;transform:translateX(-50%);background:#1a202c;color:#fff;padding:4px 8px;borderRadius:6px;fontSize:10px;whiteSpace:nowrap;zIndex:999;fontFamily:'Syne',sans-serif}`}</style>
+      <div style={{background:"#ffffff",borderBottom:"1px solid #e2e8f0",padding:"14px 20px",boxShadow:"0 2px 8px #00000008"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <div style={{width:38,height:38,background:`linear-gradient(135deg,${accentColor},${accentColor}99)`,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{bizType.icon}</div>
+            <div style={{width:42,height:42,background:negocioFoto?`url(${negocioFoto}) center/cover`:`linear-gradient(135deg,${accentColor},${accentColor}99)`,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,border:`2px solid ${accentColor}40`,overflow:"hidden",backgroundSize:"cover",cursor:"pointer",position:"relative"}} onClick={()=>document.getElementById("fotoInput").click()}>
+              {!negocioFoto && bizType.icon}
+              <div style={{position:"absolute",inset:0,background:"#00000040",display:"flex",alignItems:"center",justifyContent:"center",opacity:0,transition:"opacity .2s"}} onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=0}>
+                <span style={{color:"#fff",fontSize:14}}>📷</span>
+              </div>
+            </div>
+            <input id="fotoInput" type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{
+              const file=e.target.files[0]; if(!file) return;
+              const reader=new FileReader();
+              reader.onload=async ev=>{ const url=ev.target.result; setNegocioFoto(url); await supabase.from("negocios").update({foto_url:url}).eq("id",negocioId); };
+              reader.readAsDataURL(file);
+            }}/>
             <div>
-              <div style={{fontSize:15,fontWeight:800,color:"#f0ebe0"}}>{businessName}</div>
+              <div style={{fontSize:15,fontWeight:800,color:"#1a202c"}}>{businessName}</div>
               <div style={{fontSize:9,color:accentColor,fontFamily:"'Space Mono',monospace"}}>{bizType.label.toUpperCase()} · {employees.length} EMPLEADOS</div>
             </div>
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
-            {user?.user_metadata?.picture && <img src={user.user_metadata.picture} style={{width:28,height:28,borderRadius:"50%",border:`2px solid ${accentColor}40`}} alt="avatar"/>}
-            <button onClick={handleLogout} style={{background:"transparent",border:"1px solid #1e2a3a",color:"#4a5a6a",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>Salir</button>
+            {user?.user_metadata?.picture && <img src={user.user_metadata.picture} style={{width:28,height:28,borderRadius:"50%",border:"2px solid #e2e8f0"}} alt="avatar"/>}
+            <button onClick={handleLogout} style={{background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>Salir</button>
           </div>
         </div>
         <div style={{display:"flex",gap:6,overflowX:"auto"}}>
-          {[{l:`${counts.disponible} Libres`,c:"#4ECDC4"},{l:`${counts.ocupado} Ocupados`,c:"#E8C547"},{l:`${counts.descanso} Descanso`,c:"#A78BFA"},{l:`${appointments.filter(a=>a.fecha===todayStr).length} Citas hoy`,c:accentColor}].map((p,i)=>(
-            <div key={i} style={{background:`${p.c}10`,border:`1px solid ${p.c}25`,borderRadius:20,padding:"4px 10px",fontSize:10,color:p.c,fontWeight:600,whiteSpace:"nowrap"}}>{p.l}</div>
+          {[{l:`${counts.disponible} Libres`,c:"#10B981"},{l:`${counts.ocupado} Ocupados`,c:"#F59E0B"},{l:`${counts.descanso} Descanso`,c:"#8B5CF6"},{l:`${appointments.filter(a=>a.fecha===todayStr).length} Citas hoy`,c:accentColor==="#E8C547"?"#b45309":accentColor}].map((p,i)=>(
+            <div key={i} style={{background:`${p.c}15`,border:`1px solid ${p.c}30`,borderRadius:20,padding:"4px 10px",fontSize:10,color:p.c,fontWeight:600,whiteSpace:"nowrap"}}>{p.l}</div>
           ))}
+          {newApptAlert>0&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:20,padding:"4px 10px",fontSize:10,color:"#DC2626",fontWeight:700,whiteSpace:"nowrap",animation:"pulse 1s infinite"}} onClick={()=>setNewApptAlert(0)}>🔔 {newApptAlert} nueva{newApptAlert>1?"s":""} cita{newApptAlert>1?"s":""}</div>}
         </div>
       </div>
 
-      <div style={{display:"flex",borderBottom:"1px solid #1e2a3a",padding:"0 20px",overflowX:"auto"}}>
+      <div style={{background:"#ffffff",display:"flex",borderBottom:"1px solid #e2e8f0",padding:"0 20px",overflowX:"auto",boxShadow:"0 1px 4px #00000005"}}>
         {[{k:"empleados",l:`${stationWord}s`,i:"👥"},{k:"agenda",l:"Agenda",i:"📅"},{k:"servicios",l:"Servicios",i:"📋"},{k:"productos",l:"Productos",i:"🛍️"}].map(t=>(
-          <button key={t.k} onClick={()=>setActiveTab(t.k)} style={{background:"transparent",border:"none",borderBottom:activeTab===t.k?`2px solid ${accentColor}`:"2px solid transparent",color:activeTab===t.k?accentColor:"#4a5a6a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:12,padding:"12px 14px 10px",cursor:"pointer",marginBottom:-1,whiteSpace:"nowrap"}}>{t.i} {t.l}</button>
+          <button key={t.k} onClick={()=>setActiveTab(t.k)} style={{background:"transparent",border:"none",borderBottom:activeTab===t.k?`3px solid ${accentColor}`:"3px solid transparent",color:activeTab===t.k?accentColor:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:12,padding:"12px 14px 10px",cursor:"pointer",marginBottom:-1,whiteSpace:"nowrap",transition:"all .2s"}}>{t.i} {t.l}</button>
         ))}
       </div>
 
@@ -725,21 +725,16 @@ export default function App() {
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                     <div>
                       <div style={{fontSize:14,fontWeight:700,color:"#f0ebe0"}}>{appt.cliente_nombre}</div>
-                      {appt.cliente_telefono&&<div style={{display:"flex",alignItems:"center",gap:6,marginTop:3}}>
-                        <span style={{fontSize:11,color:"#4a5a6a"}}>📱 {appt.cliente_telefono}</span>
-                        <a href={`tel:${appt.cliente_telefono}`} onClick={e=>e.stopPropagation()} style={{background:"#4ECDC415",border:"1px solid #4ECDC430",borderRadius:6,padding:"2px 7px",fontSize:9,color:"#4ECDC4",textDecoration:"none",fontFamily:"'Space Mono',monospace"}}>LLAMAR</a>
-                        <a href={`https://wa.me/1${appt.cliente_telefono.replace(/[^0-9]/g,"")}`} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{background:"#25D36615",border:"1px solid #25D36630",borderRadius:6,padding:"2px 7px",fontSize:9,color:"#25D366",textDecoration:"none",fontFamily:"'Space Mono',monospace"}}>WA</a>
-                      </div>}
                       <div style={{fontSize:11,color:"#4a5a6a",marginTop:2}}>{svc?.emoji} {svc?.nombre} · {svc?.duracion}min</div>
                       {emp&&<div style={{fontSize:10,color:emp.color,marginTop:2}}>{emp.nombre}</div>}
                     </div>
                     <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5}}>
-                      <div style={{background:`${sc.color}15`,borderRadius:20,padding:"3px 10px",fontSize:9,color:sc.color,fontFamily:"'Space Mono',monospace"}}>{sc.label}</div>
+                      <div style={{background:`${sc.color}15`,border:`1px solid ${sc.color}30`,borderRadius:20,padding:"3px 10px",fontSize:9,color:sc.color,fontFamily:"'Space Mono',monospace",fontWeight:600}}>{sc.label}</div>
                       <div style={{display:"flex",gap:4}}>
-                        {appt.status==="pendiente"&&<button onClick={()=>updateApptStatus(appt.id,"confirmada")} style={{background:"#4ECDC415",border:"1px solid #4ECDC430",color:"#4ECDC4",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:10,padding:"4px 8px",borderRadius:6,cursor:"pointer"}}>✓</button>}
-                        {appt.status!=="completada"&&<button onClick={()=>updateApptStatus(appt.id,"completada")} style={{background:"#34D39915",border:"1px solid #34D39930",color:"#34D399",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:10,padding:"4px 8px",borderRadius:6,cursor:"pointer"}}>✅</button>}
-                        <button onClick={()=>openEditAppt(appt)} style={{background:"#1e2a3a",border:"none",color:"#c8c0b0",fontSize:10,padding:"4px 8px",borderRadius:6,cursor:"pointer"}}>✏</button>
-                        <button onClick={()=>deleteAppt(appt.id)} style={{background:"transparent",border:"1px solid #FF6B6B25",color:"#FF6B6B60",borderRadius:6,padding:"4px 7px",cursor:"pointer",fontSize:10}}>✕</button>
+                        {appt.status==="pendiente"&&<button title="Confirmar cita" onClick={()=>updateApptStatus(appt.id,"confirmada")} style={{background:"#D1FAE5",border:"1px solid #6EE7B7",color:"#065F46",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"5px 10px",borderRadius:6,cursor:"pointer"}}>✓ Confirmar</button>}
+                        {appt.status!=="completada"&&<button title="Marcar completada" onClick={()=>updateApptStatus(appt.id,"completada")} style={{background:"#ECFDF5",border:"1px solid #A7F3D0",color:"#065F46",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"5px 10px",borderRadius:6,cursor:"pointer"}}>✅ Listo</button>}
+                        <button title="Editar cita" onClick={()=>openEditAppt(appt)} style={{background:"#F1F5F9",border:"1px solid #CBD5E1",color:"#475569",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:11,padding:"5px 10px",borderRadius:6,cursor:"pointer"}}>✏ Editar</button>
+                        <button title="Eliminar cita" onClick={()=>deleteAppt(appt.id)} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:"'Syne',sans-serif"}}>✕ Borrar</button>
                       </div>
                     </div>
                   </div>
