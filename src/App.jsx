@@ -187,6 +187,7 @@ export default function App() {
   const [bookName,     setBookName]     = useState("");
   const [bookPhone,    setBookPhone]    = useState("");
   const [weekPopup,    setWeekPopup]    = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const bizType     = BUSINESS_TYPES.find(t=>t.key===businessType)||BUSINESS_TYPES[0];
   const accentColor = bizType.color;
@@ -195,22 +196,7 @@ export default function App() {
   const filtered    = filterStatus==="todos"?employees:employees.filter(e=>e.status===filterStatus);
   const counts      = {todos:employees.length,disponible:employees.filter(e=>e.status==="disponible").length,ocupado:employees.filter(e=>e.status==="ocupado").length,descanso:employees.filter(e=>e.status==="descanso").length};
 
-  // Fix #6 & #7 — use localStorage to persist session across tab switches
-  useEffect(()=>{
-    supabase.auth.getSession().then(({data:{session}})=>{
-      if(session?.user){ setUser(session.user); const s=localStorage.getItem("procita_screen"); if(s&&s!=="auth") setScreen(s); }
-      setAuthLoading(false);
-    });
-    const {data:{subscription}} = supabase.auth.onAuthStateChange((_,session)=>{
-      if(session?.user){ setUser(session.user); setAuthLoading(false); }
-    });
-    return ()=>subscription.unsubscribe();
-  },[]);
-
-  useEffect(()=>{ if(screen!=="auth") localStorage.setItem("procita_screen",screen); },[screen]);
-
   const loadNegocios = async () => { const {data}=await supabase.from("negocios").select("*").order("created_at",{ascending:false}); setNegocios(data||[]); };
-
   const loadData = async (nId) => {
     const id=nId||negocioId; if(!id) return;
     const [{data:emps},{data:svcs},{data:apts},{data:prods}] = await Promise.all([
@@ -222,6 +208,45 @@ export default function App() {
     setEmployees(emps||[]); setServices(svcs||[]); setAppointments(apts||[]); setProducts(prods||[]);
   };
 
+  // ── AUTH FIX: properly handle Google OAuth redirect ──
+  useEffect(()=>{
+    const init = async () => {
+      try {
+        const {data:{session}} = await supabase.auth.getSession();
+        if(session?.user){
+          setUser(session.user);
+          // Check if user already has a business to decide where to go
+          const {data:neg} = await supabase.from("negocios").select("*").eq("user_id",session.user.id).single();
+          if(neg){
+            setNegocioId(neg.id); setBusinessName(neg.nombre); setBusinessType(neg.tipo); setNegocioFoto(neg.foto_url||null);
+            await loadData(neg.id);
+            setScreen("dashboard");
+          } else {
+            setScreen("role");
+          }
+        } else {
+          setScreen("auth");
+        }
+      } catch(e) {
+        setScreen("auth");
+      }
+      setAuthLoading(false);
+    };
+    init();
+    const {data:{subscription}} = supabase.auth.onAuthStateChange(async (event, session)=>{
+      if(event==="SIGNED_IN" && session?.user){
+        setUser(session.user);
+        setAuthLoading(false);
+        // Only redirect if still on auth screen (prevents loops)
+        setScreen(prev => prev==="auth" ? "role" : prev);
+      }
+      if(event==="SIGNED_OUT"){
+        setUser(null); setScreen("auth");
+      }
+    });
+    return ()=>subscription.unsubscribe();
+  },[]);
+
   const handleRoleSelect = async (role) => {
     if(role==="cliente"){ await loadNegocios(); setScreen("directory"); }
     else {
@@ -232,12 +257,34 @@ export default function App() {
   };
 
   const handleGuestMode = async () => { setIsGuest(true); await loadNegocios(); setScreen("directory"); };
-  const handleLogout = async () => { await supabase.auth.signOut(); localStorage.removeItem("procita_screen"); setUser(null); setIsGuest(false); setScreen("auth"); setNegocios([]); setSelectedNeg(null); setNegocioId(null); };
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null); setIsGuest(false); setScreen("auth");
+    setNegocios([]); setSelectedNeg(null); setNegocioId(null);
+    setBusinessName(""); setBusinessType(null); setEmployees([]); setServices([]); setAppointments([]); setProducts([]);
+  };
+
   const saveBusiness = async () => {
     if(!businessName.trim()||!businessType) return; setSaving(true);
     const {data,error}=await supabase.from("negocios").insert({nombre:businessName.trim(),tipo:businessType,user_id:user?.id}).select().single();
     if(!error&&data){ setNegocioId(data.id); await loadData(data.id); setScreen("dashboard"); }
     setSaving(false);
+  };
+
+  // Delete business
+  const deleteBusiness = async () => {
+    if(!negocioId) return; setSaving(true);
+    await Promise.all([
+      supabase.from("citas").delete().eq("negocio_id",negocioId),
+      supabase.from("empleados").delete().eq("negocio_id",negocioId),
+      supabase.from("servicios").delete().eq("negocio_id",negocioId),
+      supabase.from("productos").delete().eq("negocio_id",negocioId),
+    ]);
+    await supabase.from("negocios").delete().eq("id",negocioId);
+    setSaving(false); setShowDeleteConfirm(false);
+    setNegocioId(null); setBusinessName(""); setBusinessType(null);
+    setEmployees([]); setServices([]); setAppointments([]); setProducts([]);
+    setScreen("setup");
   };
 
   const addEmployee = async () => {
@@ -250,7 +297,6 @@ export default function App() {
   const changeStatus = async (id,status) => { await supabase.from("empleados").update({status}).eq("id",id); setEmployees(p=>p.map(e=>e.id===id?{...e,status}:e)); setSelEmployee(null); };
   const removeEmployee = async (id) => { await supabase.from("empleados").delete().eq("id",id); setEmployees(p=>p.filter(e=>e.id!==id)); setSelEmployee(null); };
 
-  // Fix #2 — no default category for services
   const openAddSvc  = () => { setEditingSvc(null); setSvcForm({name:"",category:"",price:"",duration:"",emoji:"✂️",desc:"",foto:""}); setShowSvcModal(true); };
   const openEditSvc = s  => { setEditingSvc(s); setSvcForm({name:s.nombre,category:s.categoria||"",price:String(s.precio),duration:String(s.duracion),emoji:s.emoji,desc:s.descripcion||"",foto:s.foto_url||""}); setShowSvcModal(true); };
   const saveSvc = async () => {
@@ -262,7 +308,6 @@ export default function App() {
   };
   const deleteSvc = async (id) => { await supabase.from("servicios").delete().eq("id",id); setServices(p=>p.filter(s=>s.id!==id)); };
 
-  // Fix #3 — no default category for products
   const openAddProd  = () => { setEditingProd(null); setProdForm({name:"",category:"",price:"",stock:"",emoji:"🧴",desc:"",foto:""}); setShowProdModal(true); };
   const openEditProd = p  => { setEditingProd(p); setProdForm({name:p.nombre,category:p.categoria||"",price:String(p.precio),stock:String(p.stock||0),emoji:p.emoji,desc:p.descripcion||"",foto:p.foto_url||""}); setShowProdModal(true); };
   const saveProd = async () => {
@@ -295,8 +340,6 @@ export default function App() {
   };
 
   const fileToBase64 = (file) => new Promise((res,rej)=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsDataURL(file); });
-
-  // Fix #4 — WhatsApp helper
   const waLink = (phone, appt) => { const c=phone.replace(/\D/g,""); const m=encodeURIComponent(`Hola, tu cita en ${businessName} está confirmada para el ${appt.fecha} a las ${appt.hora?.slice(0,5)}.`); return `https://wa.me/${c}?text=${m}`; };
 
   if(authLoading) return <Loader text="INICIANDO PROCITA..."/>;
@@ -304,7 +347,6 @@ export default function App() {
   if(screen==="role") return <RoleSelector user={user} onSelect={handleRoleSelect}/>;
   if(screen==="directory") return <Directory negocios={negocios} user={user} isGuest={isGuest} onLogout={handleLogout} onSelect={neg=>{ setSelectedNeg(neg); setBusinessType(neg.tipo); setBusinessName(neg.nombre); setNegocioFoto(neg.foto_url||null); loadData(neg.id).then(()=>{ setNegocioId(neg.id); setClientView("home"); setScreen("client"); }); }}/>;
 
-  // ── SETUP ──────────────────────────────────────────────────────────────────
   if(screen==="setup") return (
     <div style={{...sharedBg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"32px 20px"}}>
       <style>{GCSS}</style>
@@ -333,7 +375,6 @@ export default function App() {
     </div>
   );
 
-  // ── CLIENT VIEW ────────────────────────────────────────────────────────────
   if(screen==="client") {
     const neg=selectedNeg||{nombre:businessName,tipo:businessType};
     const bt=BUSINESS_TYPES.find(t=>t.key===neg.tipo)||BUSINESS_TYPES[0];
@@ -350,7 +391,6 @@ export default function App() {
           </div>
           {isGuest&&<div style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:20,padding:"4px 10px",fontSize:9,color:"#92400E",fontFamily:"'Space Mono',monospace"}}>INVITADO</div>}
         </div>
-
         {clientView==="confirm"?(
           <div style={{padding:32,textAlign:"center"}}>
             <div style={{fontSize:60,marginBottom:16}}>🎉</div>
@@ -361,7 +401,6 @@ export default function App() {
                 <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #f1f5f9"}}><span style={{fontSize:11,color:"#64748b"}}>{l}</span><span style={{fontSize:12,fontWeight:600,color:"#0f172a"}}>{v}</span></div>
               ))}
             </div>
-            {/* Fix #4 */}
             {bookPhone&&<a href={`https://wa.me/${bookPhone.replace(/\D/g,"")}?text=${encodeURIComponent(`Hola ${bookName}, tu cita en ${neg.nombre} está confirmada para el ${bookDate} a las ${bookTime}. ✂️`)}`} target="_blank" rel="noreferrer" style={{display:"block",background:"#25D366",color:"#fff",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,padding:"12px 24px",borderRadius:12,textDecoration:"none",maxWidth:340,margin:"0 auto 10px",textAlign:"center"}}>📲 Confirmar por WhatsApp</a>}
             <div style={{display:"flex",gap:10,maxWidth:340,margin:"10px auto 0"}}>
               <button onClick={()=>{setClientView("home");setBookStep(1);setBookService(null);setBookEmployee(null);setBookTime(null);setBookName("");setBookPhone("");}} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"12px",borderRadius:12,cursor:"pointer"}}>Nueva cita</button>
@@ -475,6 +514,19 @@ export default function App() {
       <style>{GCSS}</style>
       <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
 
+      {/* Delete confirm modal */}
+      {showDeleteConfirm&&<div style={{position:"fixed",inset:0,background:"#0000006d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:20}}>
+        <div style={{...card(),padding:28,maxWidth:380,width:"100%",animation:"slideUp .2s ease"}}>
+          <div style={{fontSize:40,textAlign:"center",marginBottom:16}}>⚠️</div>
+          <div style={{fontSize:17,fontWeight:800,color:"#0f172a",marginBottom:8,textAlign:"center"}}>¿Eliminar negocio?</div>
+          <div style={{fontSize:13,color:"#64748b",marginBottom:24,textAlign:"center",lineHeight:1.5}}>Esto eliminará <b>{businessName}</b> junto con todos sus empleados, servicios, citas y productos. <b>Esta acción no se puede deshacer.</b></div>
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={()=>setShowDeleteConfirm(false)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"12px",borderRadius:10,cursor:"pointer"}}>Cancelar</button>
+            <button onClick={deleteBusiness} disabled={saving} style={{flex:1,background:"#EF4444",border:"none",color:"#fff",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"12px",borderRadius:10,cursor:"pointer"}}>{saving?"Eliminando...":"Sí, eliminar"}</button>
+          </div>
+        </div>
+      </div>}
+
       <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"12px 20px",position:"sticky",top:0,zIndex:10,boxShadow:"0 2px 8px #00000008"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -484,12 +536,13 @@ export default function App() {
             <input id="fotoNeg" type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{ const f=e.target.files[0]; if(f){ const url=await fileToBase64(f); setNegocioFoto(url); await supabase.from("negocios").update({foto_url:url}).eq("id",negocioId); } }}/>
             <div>
               <div style={{fontSize:15,fontWeight:800,color:"#0f172a"}}>{businessName}</div>
-              <div style={{fontSize:9,color:accentColor,fontFamily:"'Space Mono',monospace"}}>{bizType.label.toUpperCase()} · {employees.length} EMPLEADOS · <span style={{color:"#94a3b8",cursor:"pointer"}} onClick={()=>document.getElementById("fotoNeg").click()}>📷 cambiar foto</span></div>
+              <div style={{fontSize:9,color:accentColor,fontFamily:"'Space Mono',monospace"}}>{bizType.label.toUpperCase()} · {employees.length} EMPLEADOS</div>
             </div>
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
             {user?.user_metadata?.picture&&<img src={user.user_metadata.picture} style={{width:28,height:28,borderRadius:"50%",border:"2px solid #e2e8f0"}} alt=""/>}
             <button onClick={handleLogout} style={{background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>Salir</button>
+            <button onClick={()=>setShowDeleteConfirm(true)} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>🗑 Eliminar negocio</button>
           </div>
         </div>
         <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:2}}>
@@ -506,7 +559,6 @@ export default function App() {
         ))}
       </div>
 
-      {/* EMPLEADOS */}
       {activeTab==="empleados"&&<div style={{padding:"18px 20px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:8}}>
           <div style={{display:"flex",gap:6,overflowX:"auto"}}>
@@ -531,7 +583,7 @@ export default function App() {
               </div>
               <div style={{textAlign:"center"}}>
                 <div style={{fontSize:13,fontWeight:700,color:"#0f172a",marginBottom:2}}>{emp.nombre}</div>
-                <div style={{fontSize:9,color:accentColor=="#E8C547"?"#b45309":accentColor,fontFamily:"'Space Mono',monospace",marginBottom:2}}>{emp.rol}</div>
+                <div style={{fontSize:9,color:accentColor,fontFamily:"'Space Mono',monospace",marginBottom:2}}>{emp.rol}</div>
                 <div style={{fontSize:9,color:"#94a3b8",fontFamily:"'Space Mono',monospace",marginBottom:8}}>{emp.especialidad}</div>
                 <div style={{display:"inline-flex",alignItems:"center",gap:5,background:`${cfg.dot}12`,border:`1px solid ${cfg.dot}25`,borderRadius:20,padding:"3px 10px",fontSize:9,fontWeight:600,color:cfg.dot}}><div style={{width:5,height:5,borderRadius:"50%",background:cfg.dot}}/>{cfg.label}</div>
               </div>
@@ -548,7 +600,6 @@ export default function App() {
         </div>
       </div>}
 
-      {/* AGENDA */}
       {activeTab==="agenda"&&<div style={{padding:"18px 20px"}}>
         <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
           <div style={{display:"flex",background:"#f1f5f9",borderRadius:10,border:"1px solid #e2e8f0",overflow:"hidden"}}>
@@ -563,7 +614,6 @@ export default function App() {
           </select>
           <button onClick={openAddAppt} style={{background:`linear-gradient(135deg,${accentColor},${accentColor}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 14px",borderRadius:10,cursor:"pointer",marginLeft:"auto"}}>+ Nueva cita</button>
         </div>
-
         {agendaView==="dia"&&(()=>{
           const dayAppts=appointments.filter(a=>a.fecha===agendaDate&&(agendaEmp==="todos"||a.empleado_id===agendaEmp));
           return <div>
@@ -573,26 +623,26 @@ export default function App() {
               const svc=services.find(s=>s.id===appt.servicio_id);
               const sc=apptStatus[appt.status]||apptStatus.pendiente;
               return <div key={appt.id} className="appt-card" style={{...card(),padding:"14px 16px",display:"flex",gap:12,marginBottom:10,borderLeft:`4px solid ${sc.color}`}}>
-                <div style={{fontFamily:"'Space Mono',monospace",fontSize:13,fontWeight:700,color:accentColor==="E8C547"?"#b45309":accentColor,minWidth:48,paddingTop:2}}>{appt.hora?.slice(0,5)}</div>
+                <div style={{fontFamily:"'Space Mono',monospace",fontSize:13,fontWeight:700,color:accentColor,minWidth:48,paddingTop:2}}>{appt.hora?.slice(0,5)}</div>
                 <div style={{flex:1}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,flexWrap:"wrap"}}>
                     <div>
                       <div style={{fontSize:14,fontWeight:700,color:"#0f172a"}}>{appt.cliente_nombre}</div>
                       <div style={{fontSize:11,color:"#64748b",marginTop:2}}>{svc?.emoji} {svc?.nombre}{svc?.duracion&&` · ${svc.duracion}min`}</div>
                       {emp&&<div style={{fontSize:10,color:emp.color,marginTop:2,fontWeight:600}}>{emp.nombre}</div>}
-                      {/* Fix #4 */}
                       {appt.cliente_telefono&&<div style={{display:"flex",gap:6,marginTop:6}}>
-                        <a href={`tel:${appt.cliente_telefono}`} style={{background:"#EFF6FF",border:"1px solid #BFDBFE",color:"#1D4ED8",borderRadius:6,padding:"4px 10px",fontSize:10,fontFamily:"'Syne',sans-serif",fontWeight:600,textDecoration:"none"}}>📞 Llamar</a>
-                        <a href={waLink(appt.cliente_telefono,appt)} target="_blank" rel="noreferrer" style={{background:"#F0FDF4",border:"1px solid #BBF7D0",color:"#166534",borderRadius:6,padding:"4px 10px",fontSize:10,fontFamily:"'Syne',sans-serif",fontWeight:600,textDecoration:"none"}}>💬 WhatsApp</a>
+                        <span style={{fontSize:11,color:"#475569",fontWeight:500}}>📱 {appt.cliente_telefono}</span>
+                        <a href={`tel:${appt.cliente_telefono}`} style={{background:"#EFF6FF",border:"1px solid #BFDBFE",color:"#1D4ED8",borderRadius:6,padding:"3px 8px",fontSize:10,fontFamily:"'Syne',sans-serif",fontWeight:600,textDecoration:"none"}}>Llamar</a>
+                        <a href={waLink(appt.cliente_telefono,appt)} target="_blank" rel="noreferrer" style={{background:"#F0FDF4",border:"1px solid #BBF7D0",color:"#166534",borderRadius:6,padding:"3px 8px",fontSize:10,fontFamily:"'Syne',sans-serif",fontWeight:600,textDecoration:"none"}}>WhatsApp</a>
                       </div>}
                     </div>
                     <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5}}>
                       <div style={{background:`${sc.color}15`,border:`1px solid ${sc.color}30`,borderRadius:20,padding:"3px 10px",fontSize:9,color:sc.color,fontFamily:"'Space Mono',monospace",fontWeight:600}}>{sc.label}</div>
                       <div style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"flex-end"}}>
-                        {appt.status==="pendiente"&&<button title="Confirmar cita" onClick={()=>updateApptStatus(appt.id,"confirmada")} style={{background:"#D1FAE5",border:"1px solid #6EE7B7",color:"#065F46",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"5px 10px",borderRadius:6,cursor:"pointer"}}>✓ Confirmar</button>}
-                        {appt.status!=="completada"&&<button title="Marcar como completada" onClick={()=>updateApptStatus(appt.id,"completada")} style={{background:"#EDE9FE",border:"1px solid #C4B5FD",color:"#5B21B6",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"5px 10px",borderRadius:6,cursor:"pointer"}}>✅ Listo</button>}
-                        <button title="Editar cita" onClick={()=>openEditAppt(appt)} style={{background:"#F1F5F9",border:"1px solid #CBD5E1",color:"#475569",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:11,padding:"5px 10px",borderRadius:6,cursor:"pointer"}}>✏ Editar</button>
-                        <button title="Eliminar cita" onClick={()=>deleteAppt(appt.id)} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:11,padding:"5px 10px",borderRadius:6,cursor:"pointer"}}>✕ Borrar</button>
+                        {appt.status==="pendiente"&&<button onClick={()=>updateApptStatus(appt.id,"confirmada")} style={{background:"#D1FAE5",border:"1px solid #6EE7B7",color:"#065F46",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"5px 10px",borderRadius:6,cursor:"pointer"}}>✓ Confirmar</button>}
+                        {appt.status!=="completada"&&<button onClick={()=>updateApptStatus(appt.id,"completada")} style={{background:"#EDE9FE",border:"1px solid #C4B5FD",color:"#5B21B6",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"5px 10px",borderRadius:6,cursor:"pointer"}}>✅ Listo</button>}
+                        <button onClick={()=>openEditAppt(appt)} style={{background:"#F1F5F9",border:"1px solid #CBD5E1",color:"#475569",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:11,padding:"5px 10px",borderRadius:6,cursor:"pointer"}}>✏ Editar</button>
+                        <button onClick={()=>deleteAppt(appt.id)} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:11,padding:"5px 10px",borderRadius:6,cursor:"pointer"}}>✕ Borrar</button>
                       </div>
                     </div>
                   </div>
@@ -601,8 +651,6 @@ export default function App() {
             })}
           </div>;
         })()}
-
-        {/* Fix #5 — Week view with click popup */}
         {agendaView==="semana"&&<div style={{overflowX:"auto",position:"relative"}}>
           {weekPopup&&<div style={{position:"fixed",inset:0,zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20,background:"#0000003d"}} onClick={()=>setWeekPopup(null)}>
             <div style={{...card(),padding:22,maxWidth:360,width:"100%",animation:"slideUp .2s ease"}} onClick={e=>e.stopPropagation()}>
@@ -652,7 +700,6 @@ export default function App() {
         </div>}
       </div>}
 
-      {/* SERVICIOS */}
       {activeTab==="servicios"&&<div style={{padding:"18px 20px"}}>
         <div style={{display:"flex",justifyContent:"flex-end",marginBottom:14}}>
           <button onClick={openAddSvc} style={{background:`linear-gradient(135deg,${accentColor},${accentColor}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 16px",borderRadius:10,cursor:"pointer"}}>+ Nuevo servicio</button>
@@ -671,7 +718,7 @@ export default function App() {
                 {svc.foto_url&&<div style={{fontSize:13,fontWeight:700,color:"#0f172a",marginBottom:4}}>{svc.nombre}</div>}
                 <div style={{fontSize:10,color:"#64748b",marginBottom:10}}>{svc.descripcion}</div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div><div style={{fontSize:18,fontWeight:800,color:accentColor==="E8C547"?"#b45309":accentColor}}>${svc.precio}</div><div style={{fontSize:9,color:"#94a3b8",fontFamily:"'Space Mono',monospace"}}>⏱ {svc.duracion} min</div></div>
+                  <div><div style={{fontSize:18,fontWeight:800,color:accentColor}}>${svc.precio}</div><div style={{fontSize:9,color:"#94a3b8",fontFamily:"'Space Mono',monospace"}}>⏱ {svc.duracion} min</div></div>
                   <div style={{display:"flex",gap:6}}>
                     <button onClick={()=>openEditSvc(svc)} style={{background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#475569",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11,fontFamily:"'Syne',sans-serif",fontWeight:600}}>Editar</button>
                     <button onClick={()=>deleteSvc(svc.id)} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:8,padding:"6px 8px",cursor:"pointer",fontSize:11}}>✕</button>
@@ -683,7 +730,6 @@ export default function App() {
         </div>
       </div>}
 
-      {/* PRODUCTOS */}
       {activeTab==="productos"&&<div style={{padding:"18px 20px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
           <div><div style={{fontSize:15,fontWeight:800,color:"#0f172a"}}>Productos en venta</div><div style={{fontSize:10,color:"#94a3b8",fontFamily:"'Space Mono',monospace",marginTop:2}}>EL CLIENTE PAGA EN EL LOCAL</div></div>
@@ -714,7 +760,6 @@ export default function App() {
         </div>
       </div>}
 
-      {/* MODAL EMPLEADO */}
       {showAddEmp&&<div style={{position:"fixed",inset:0,background:"#0000004d",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:100}} onClick={()=>setShowAddEmp(false)}>
         <div style={{...card(),borderRadius:"20px 20px 0 0",padding:"24px 20px 36px",width:"100%",maxWidth:480,animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
           <div style={{width:36,height:4,background:"#e2e8f0",borderRadius:2,margin:"0 auto 20px"}}/>
@@ -731,7 +776,6 @@ export default function App() {
         </div>
       </div>}
 
-      {/* MODAL SERVICIO — Fix #2 */}
       {showSvcModal&&<div style={{position:"fixed",inset:0,background:"#0000004d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,padding:20}} onClick={()=>setShowSvcModal(false)}>
         <div style={{...card(),borderRadius:20,padding:"24px 20px",width:"100%",maxWidth:440,maxHeight:"92vh",overflowY:"auto",animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
           <div style={{fontSize:16,fontWeight:800,color:"#0f172a",marginBottom:20}}>{editingSvc?"Editar servicio":"Nuevo servicio"}</div>
@@ -747,7 +791,7 @@ export default function App() {
                 {svcForm.foto&&<button onClick={()=>setSvcForm(x=>({...x,foto:""}))} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11}}>✕</button>}
               </div>
             </div>
-            <div><div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>EMOJI (SI NO HAY FOTO)</div>
+            <div><div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>EMOJI</div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{SVC_EMOJIS.map(e=><button key={e} onClick={()=>setSvcForm(f=>({...f,emoji:e}))} style={{width:38,height:38,background:svcForm.emoji===e?`${accentColor}20`:"#f8fafc",border:`1px solid ${svcForm.emoji===e?accentColor:"#e2e8f0"}`,borderRadius:10,cursor:"pointer",fontSize:18}}>{e}</button>)}</div>
             </div>
             <input value={svcForm.name} onChange={e=>setSvcForm(f=>({...f,name:e.target.value}))} placeholder="Nombre del servicio *" style={inp()}/>
@@ -765,7 +809,6 @@ export default function App() {
         </div>
       </div>}
 
-      {/* MODAL PRODUCTO — Fix #3 */}
       {showProdModal&&<div style={{position:"fixed",inset:0,background:"#0000004d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,padding:20}} onClick={()=>setShowProdModal(false)}>
         <div style={{...card(),borderRadius:20,padding:"24px 20px",width:"100%",maxWidth:440,maxHeight:"92vh",overflowY:"auto",animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
           <div style={{fontSize:16,fontWeight:800,color:"#0f172a",marginBottom:20}}>{editingProd?"Editar producto":"Nuevo producto"}</div>
@@ -781,7 +824,7 @@ export default function App() {
                 {prodForm.foto&&<button onClick={()=>setProdForm(x=>({...x,foto:""}))} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11}}>✕</button>}
               </div>
             </div>
-            <div><div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>EMOJI (SI NO HAY FOTO)</div>
+            <div><div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>EMOJI</div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{PROD_EMOJIS.map(e=><button key={e} onClick={()=>setProdForm(f=>({...f,emoji:e}))} style={{width:38,height:38,background:prodForm.emoji===e?`${accentColor}20`:"#f8fafc",border:`1px solid ${prodForm.emoji===e?accentColor:"#e2e8f0"}`,borderRadius:10,cursor:"pointer",fontSize:18}}>{e}</button>)}</div>
             </div>
             <input value={prodForm.name} onChange={e=>setProdForm(f=>({...f,name:e.target.value}))} placeholder="Nombre del producto *" style={inp()}/>
@@ -799,7 +842,6 @@ export default function App() {
         </div>
       </div>}
 
-      {/* MODAL CITA */}
       {showAppt&&<div style={{position:"fixed",inset:0,background:"#0000004d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,padding:20}} onClick={()=>setShowAppt(false)}>
         <div style={{...card(),borderRadius:20,padding:"24px 20px",width:"100%",maxWidth:440,animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
           <div style={{fontSize:16,fontWeight:800,color:"#0f172a",marginBottom:20}}>{editingAppt?"Editar cita":"Nueva cita"}</div>
