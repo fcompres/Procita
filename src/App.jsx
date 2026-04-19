@@ -37,6 +37,8 @@ const bg   = { minHeight:"100vh", background:"#f1f5f9", color:"#1e293b", fontFam
 const CSS  = `@keyframes spin{to{transform:rotate(360deg)}}@keyframes slideUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}`;
 const f2b  = (file) => new Promise((res,rej)=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsDataURL(file); });
 const waMsg = (phone, neg, fecha, hora) => `https://wa.me/${phone.replace(/\D/g,"")}?text=${encodeURIComponent(`Hola, tu cita en ${neg} está confirmada para el ${fecha} a las ${hora}.`)}`;
+const waMsgDueno = (phone, neg, cliente, svc, fecha, hora) => `https://wa.me/${phone.replace(/\D/g,"")}?text=${encodeURIComponent(`🔔 Nueva cita en ${neg}!\n👤 Cliente: ${cliente}\n✂️ Servicio: ${svc}\n📅 Fecha: ${fecha}\n🕐 Hora: ${hora}`)}`;
+const addToCalendar = (neg, svc, fecha, hora) => { const dt=fecha.replace(/-/g,""); const h=hora.replace(":",""); const end=`${dt}T${h}00`; const start=`${dt}T${h}00`; return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Cita en ${neg}`)}&details=${encodeURIComponent(`Servicio: ${svc}`)}&dates=${start}/${end}`; };
 const bzColor = (tipo) => BIZ_TYPES.find(t=>t.key===tipo)?.color || "#E8C547";
 const bzIcon  = (tipo) => BIZ_TYPES.find(t=>t.key===tipo)?.icon  || "✂️";
 
@@ -231,6 +233,8 @@ export default function App() {
   const [galeria,      setGaleria]      = useState([]);
   const [resenas,      setResenas]      = useState([]);
   const [listaEspera,  setListaEspera]  = useState([]);
+  const [bloqueos,     setBloqueos]     = useState([]);
+  const [negWA,        setNegWA]        = useState("");
   const [fidelActiva,  setFidelActiva]  = useState(false);
   const [citasPremio,  setCitasPremio]  = useState(5);
 
@@ -271,6 +275,12 @@ export default function App() {
   const [galFoto,  setGalFoto]  = useState("");
   const [galDesc,  setGalDesc]  = useState("");
 
+  // Modals – bloqueo
+  const [showBloqueo, setShowBloqueo] = useState(false);
+  const [bloqueoF,    setBloqueoF]    = useState({empId:"",fecha:todayStr,horaInicio:"12:00",horaFin:"13:00",motivo:"Almuerzo",tipo:"bloqueo"});
+  const MOTIVOS = ["Almuerzo","Reunión","Sin cita previa","Reservado","Descanso","Personal","Otro"];
+  const TIPOS   = [{k:"bloqueo",l:"No disponible",c:"#EF4444"},{k:"reservado",l:"Reservado (sin cita)",c:"#F97316"},{k:"almuerzo",l:"Almuerzo",c:"#F59E0B"}];
+
   // Modals – resena & espera (client side)
   const [showResena, setShowResena] = useState(false);
   const [resenaF,    setResenaF]    = useState({nombre:"",cal:5,comentario:""});
@@ -286,6 +296,9 @@ export default function App() {
   const [bkTime,     setBkTime]     = useState(null);
   const [bkName,     setBkName]     = useState("");
   const [bkPhone,    setBkPhone]    = useState("");
+  const [misCitas,   setMisCitas]   = useState([]);
+  const [miNombre,   setMiNombre]   = useState(localStorage.getItem("cutq_nombre")||"");
+  const [showReschedule, setShowReschedule] = useState(null);
 
   // Derived
   const biz     = BIZ_TYPES.find(t=>t.key===businessType) || BIZ_TYPES[0];
@@ -316,7 +329,7 @@ export default function App() {
   const loadData = async (nId) => {
     const id = nId||negocioId;
     if(!id) return;
-    const [r1,r2,r3,r4,r5,r6,r7,r8] = await Promise.all([
+    const [r1,r2,r3,r4,r5,r6,r7,r8,r9] = await Promise.all([
       supabase.from("empleados").select("*").eq("negocio_id",id).order("silla"),
       supabase.from("servicios").select("*").eq("negocio_id",id).order("created_at"),
       supabase.from("citas").select("*").eq("negocio_id",id).order("fecha").order("hora"),
@@ -325,6 +338,7 @@ export default function App() {
       supabase.from("resenas").select("*").eq("negocio_id",id).order("created_at",{ascending:false}),
       supabase.from("lista_espera").select("*").eq("negocio_id",id).order("created_at"),
       supabase.from("negocios").select("*").eq("id",id).single(),
+      supabase.from("bloqueos").select("*").eq("negocio_id",id).order("fecha").order("hora_inicio"),
     ]);
     setEmployees(r1.data||[]);
     setServices(r2.data||[]);
@@ -333,7 +347,8 @@ export default function App() {
     setGaleria(r5.data||[]);
     setResenas(r6.data||[]);
     setListaEspera(r7.data||[]);
-    if(r8.data){ setFidelActiva(r8.data.fidelizacion_activa||false); setCitasPremio(r8.data.citas_x_premio||5); }
+    setBloqueos(r9.data||[]);
+    if(r8.data){ setFidelActiva(r8.data.fidelizacion_activa||false); setCitasPremio(r8.data.citas_x_premio||5); setNegWA(r8.data.whatsapp||""); }
   };
 
   // ── AUTH ACTIONS ───────────────────────────────────────────────────────────
@@ -424,6 +439,26 @@ export default function App() {
   const saveGal  = async () => { if(!galFoto) return; const {data}=await supabase.from("galeria").insert({negocio_id:negocioId,foto_url:galFoto,descripcion:galDesc}).select().single(); if(data) setGaleria(p=>[data,...p]); setShowGal(false); setGalFoto(""); setGalDesc(""); };
   const deleteGal = async (id) => { await supabase.from("galeria").delete().eq("id",id); setGaleria(p=>p.filter(g=>g.id!==id)); };
 
+  // ── BLOQUEOS ───────────────────────────────────────────────────────────────
+  const saveBloqueo = async () => {
+    const obj = {negocio_id:negocioId,empleado_id:bloqueoF.empId||null,fecha:bloqueoF.fecha,hora_inicio:bloqueoF.horaInicio,hora_fin:bloqueoF.horaFin,motivo:bloqueoF.motivo,tipo:bloqueoF.tipo};
+    const {data} = await supabase.from("bloqueos").insert(obj).select().single();
+    if(data) setBloqueos(p=>[...p,data]);
+    setShowBloqueo(false);
+  };
+  const deleteBloqueo = async (id) => { await supabase.from("bloqueos").delete().eq("id",id); setBloqueos(p=>p.filter(b=>b.id!==id)); };
+
+  const isHourBlocked = (date, hour, empId) => {
+    return bloqueos.some(b => {
+      if(b.fecha !== date) return false;
+      if(b.empleado_id && empId && b.empleado_id !== empId) return false;
+      const hNum = parseInt(hour.replace(":",""));
+      const start = parseInt(b.hora_inicio.replace(":","").slice(0,4));
+      const end   = parseInt(b.hora_fin.replace(":","").slice(0,4));
+      return hNum >= start && hNum < end;
+    });
+  };
+
   // ── FIDELIZACIÓN ───────────────────────────────────────────────────────────
   const toggleFidel = async (val) => { setFidelActiva(val); await supabase.from("negocios").update({fidelizacion_activa:val}).eq("id",negocioId); };
   const setPremio   = async (val) => { setCitasPremio(val); await supabase.from("negocios").update({citas_x_premio:val}).eq("id",negocioId); };
@@ -439,9 +474,39 @@ export default function App() {
   const confirmBooking = async () => {
     if(!bkName.trim()||!bkTime) return;
     const nId = selectedNeg?.id||negocioId;
+    const negNombre = selectedNeg?.nombre||businessName;
     const {data} = await supabase.from("citas").insert({negocio_id:nId,cliente_nombre:bkName,cliente_telefono:bkPhone,empleado_id:bkEmp?.id||null,servicio_id:bkSvc?.id||null,fecha:bkDate,hora:bkTime,status:"pendiente"}).select().single();
     if(data){ setAppointments(p=>[...p,data]); setNewAlert(n=>n+1); }
+    // Save name for future
+    localStorage.setItem("cutq_nombre", bkName);
+    setMiNombre(bkName);
+    // Auto WhatsApp to business owner
+    const negWANum = selectedNeg?.whatsapp || negWA;
+    if(negWANum) {
+      const waUrl = waMsgDueno(negWANum, negNombre, bkName, bkSvc?.nombre||"Servicio", bkDate, bkTime);
+      window.open(waUrl, "_blank");
+    }
     setClientView("confirm");
+  };
+
+  // Mis citas del cliente
+  const loadMisCitas = async () => {
+    if(!miNombre) return;
+    const nId = selectedNeg?.id||negocioId;
+    const {data} = await supabase.from("citas").select("*").eq("negocio_id",nId).ilike("cliente_nombre",miNombre).order("fecha").order("hora");
+    setMisCitas(data||[]);
+  };
+
+  const reagendarCita = async (citaId, newDate, newTime) => {
+    await supabase.from("citas").update({fecha:newDate, hora:newTime, status:"pendiente"}).eq("id",citaId);
+    setAppointments(p=>p.map(a=>a.id===citaId?{...a,fecha:newDate,hora:newTime,status:"pendiente"}:a));
+    setMisCitas(p=>p.map(a=>a.id===citaId?{...a,fecha:newDate,hora:newTime,status:"pendiente"}:a));
+    setShowReschedule(null);
+  };
+
+  const cancelarCitaCliente = async (citaId) => {
+    await supabase.from("citas").update({status:"cancelada"}).eq("id",citaId);
+    setMisCitas(p=>p.map(a=>a.id===citaId?{...a,status:"cancelada"}:a));
   };
 
   // ── CLIENT RESENA ──────────────────────────────────────────────────────────
@@ -548,6 +613,9 @@ export default function App() {
                 📲 Confirmar por WhatsApp
               </a>
             )}
+            <a href={addToCalendar(neg.nombre,bkSvc?.nombre||"Cita",bkDate,bkTime)} target="_blank" rel="noreferrer" style={{display:"block",background:"#4285F4",color:"#fff",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:13,padding:"11px 24px",borderRadius:12,textDecoration:"none",maxWidth:340,margin:"0 auto 10px",textAlign:"center"}}>
+              📅 Agregar a Google Calendar
+            </a>
             <div style={{display:"flex",gap:10,maxWidth:340,margin:"10px auto 0"}}>
               <button onClick={()=>{setClientView("home");setStep(1);setBkSvc(null);setBkEmp(null);setBkTime(null);setBkName("");setBkPhone("");}} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"12px",borderRadius:12,cursor:"pointer"}}>Nueva cita</button>
               <button onClick={()=>setScreen("directory")} style={{flex:1,background:`linear-gradient(135deg,${cc},${cc}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"12px",borderRadius:12,cursor:"pointer"}}>Más negocios</button>
@@ -633,8 +701,13 @@ export default function App() {
                   <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
                     {HOURS.map(h=>{
                       const taken = appointments.find(a=>a.fecha===bkDate&&a.hora?.startsWith(h)&&(bkEmp?a.empleado_id===bkEmp?.id:false));
+                      const blocked = isHourBlocked(bkDate, h, bkEmp?.id||null);
+                      const unavailable = !!taken || blocked;
                       return (
-                        <button key={h} disabled={!!taken} onClick={()=>setBkTime(h)} style={{background:bkTime===h?cc:taken?"#f1f5f9":"#fff",border:`1px solid ${bkTime===h?cc:"#e2e8f0"}`,color:bkTime===h?"#0f172a":taken?"#cbd5e1":"#334155",fontFamily:"'Space Mono',monospace",fontSize:11,padding:"9px 4px",borderRadius:8,cursor:taken?"not-allowed":"pointer",fontWeight:600,opacity:taken?0.4:1}}>{h}</button>
+                        <button key={h} disabled={unavailable} onClick={()=>setBkTime(h)} style={{background:bkTime===h?cc:unavailable?"#f1f5f9":"#fff",border:`1px solid ${bkTime===h?cc:"#e2e8f0"}`,color:bkTime===h?"#0f172a":unavailable?"#cbd5e1":"#334155",fontFamily:"'Space Mono',monospace",fontSize:11,padding:"9px 4px",borderRadius:8,cursor:unavailable?"not-allowed":"pointer",fontWeight:600,opacity:unavailable?0.4:1,position:"relative"}}>
+                          {h}
+                          {blocked && <span style={{position:"absolute",top:-2,right:-2,fontSize:6}}>🚫</span>}
+                        </button>
                       );
                     })}
                   </div>
@@ -671,10 +744,88 @@ export default function App() {
           </div>
         )}
 
-        {/* Client home */}
-        {clientView==="home" && (
+        {/* Mis Citas view */}
+        {clientView==="miscitas" && (
           <div style={{padding:"20px 20px 80px"}}>
-            <button onClick={()=>setClientView("book")} style={{width:"100%",background:`linear-gradient(135deg,${cc},${cc}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:16,padding:16,borderRadius:14,cursor:"pointer",marginBottom:20,boxShadow:`0 4px 20px ${cc}40`}}>📅 Reservar cita</button>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+              <button onClick={()=>setClientView("home")} style={{background:"#f1f5f9",border:"none",color:"#64748b",fontSize:18,cursor:"pointer",padding:"4px 8px",borderRadius:8}}>‹</button>
+              <div style={{fontSize:18,fontWeight:800,color:"#0f172a"}}>📋 Mis citas</div>
+            </div>
+            {misCitas.length===0 && (
+              <div style={{textAlign:"center",padding:"40px 0",color:"#94a3b8"}}>
+                <div style={{fontSize:40,marginBottom:10}}>📅</div>
+                <div style={{fontFamily:"'Space Mono',monospace",fontSize:11}}>NO TIENES CITAS AÚN</div>
+              </div>
+            )}
+            {misCitas.map(cita=>{
+              const svc = services.find(s=>s.id===cita.servicio_id);
+              const emp = employees.find(e=>e.id===cita.empleado_id);
+              const sc  = APPT_STATUS[cita.status]||APPT_STATUS.pendiente;
+              const isPast = cita.fecha < todayStr;
+              const isUpcoming = cita.fecha >= todayStr && cita.status !== "cancelada" && cita.status !== "completada";
+              return (
+                <div key={cita.id} style={{...card(),padding:"14px 16px",marginBottom:12,borderLeft:`4px solid ${sc.color}`}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                    <div>
+                      <div style={{fontSize:14,fontWeight:700,color:"#0f172a"}}>{svc?.nombre||"Servicio"}</div>
+                      <div style={{fontSize:12,color:"#64748b",marginTop:2}}>📅 {cita.fecha} · 🕐 {cita.hora?.slice(0,5)}</div>
+                      {emp && <div style={{fontSize:11,color:emp.color,marginTop:2,fontWeight:600}}>👤 {emp.nombre}</div>}
+                    </div>
+                    <div style={{background:`${sc.color}15`,border:`1px solid ${sc.color}30`,borderRadius:20,padding:"3px 10px",fontSize:9,color:sc.color,fontFamily:"'Space Mono',monospace",fontWeight:600}}>{sc.label}</div>
+                  </div>
+                  {isUpcoming && (
+                    <div style={{display:"flex",gap:8,marginTop:8}}>
+                      <button onClick={()=>setShowReschedule(cita)} style={{flex:1,background:"#EFF6FF",border:"1px solid #BFDBFE",color:"#1D4ED8",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:12,padding:"8px",borderRadius:8,cursor:"pointer"}}>🔄 Reagendar</button>
+                      <button onClick={()=>cancelarCitaCliente(cita.id)} style={{flex:1,background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:12,padding:"8px",borderRadius:8,cursor:"pointer"}}>✕ Cancelar</button>
+                      <a href={addToCalendar(neg.nombre,svc?.nombre||"Cita",cita.fecha,cita.hora?.slice(0,5))} target="_blank" rel="noreferrer" style={{flex:1,background:"#F0FDF4",border:"1px solid #BBF7D0",color:"#166534",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:12,padding:"8px",borderRadius:8,cursor:"pointer",textDecoration:"none",textAlign:"center"}}>📅 Calendario</a>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Reschedule modal */}
+            {showReschedule && (()=>{
+              const [rDate, setRDate] = useState(showReschedule.fecha);
+              const [rTime, setRTime] = useState("10:00");
+              return (
+                <div style={{position:"fixed",inset:0,background:"#0000004d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:20}} onClick={()=>setShowReschedule(null)}>
+                  <div style={{...card(),borderRadius:20,padding:"24px 20px",width:"100%",maxWidth:400,animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
+                    <div style={{fontSize:16,fontWeight:800,color:"#0f172a",marginBottom:20}}>🔄 Reagendar cita</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:16}}>
+                      <div>
+                        <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>NUEVA FECHA</div>
+                        <input type="date" value={rDate} onChange={e=>setRDate(e.target.value)} style={inp()} min={todayStr}/>
+                      </div>
+                      <div>
+                        <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>NUEVA HORA</div>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
+                          {HOURS.map(h=>{
+                            const taken = appointments.find(a=>a.id!==showReschedule.id&&a.fecha===rDate&&a.hora?.startsWith(h)&&(showReschedule.empleado_id?a.empleado_id===showReschedule.empleado_id:false));
+                            const blocked = isHourBlocked(rDate, h, showReschedule.empleado_id);
+                            const unav = !!taken || blocked;
+                            return <button key={h} disabled={unav} onClick={()=>setRTime(h)} style={{background:rTime===h?cc:unav?"#f1f5f9":"#fff",border:`1px solid ${rTime===h?cc:"#e2e8f0"}`,color:rTime===h?"#0f172a":unav?"#cbd5e1":"#334155",fontFamily:"'Space Mono',monospace",fontSize:10,padding:"7px 2px",borderRadius:6,cursor:unav?"not-allowed":"pointer",opacity:unav?0.4:1}}>{h}</button>;
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:10}}>
+                      <button onClick={()=>setShowReschedule(null)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Cancelar</button>
+                      <button onClick={()=>reagendarCita(showReschedule.id,rDate,rTime)} style={{flex:2,background:`linear-gradient(135deg,${cc},${cc}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Confirmar reagenda</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+          <div style={{padding:"20px 20px 80px"}}>
+            <button onClick={()=>setClientView("book")} style={{width:"100%",background:`linear-gradient(135deg,${cc},${cc}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:16,padding:16,borderRadius:14,cursor:"pointer",marginBottom:12,boxShadow:`0 4px 20px ${cc}40`}}>📅 Reservar cita</button>
+
+            {/* Mis citas */}
+            {miNombre && (
+              <button onClick={async()=>{ await loadMisCitas(); setClientView("miscitas"); }} style={{width:"100%",background:"#EFF6FF",border:"1px solid #BFDBFE",color:"#1D4ED8",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:14,padding:14,borderRadius:14,cursor:"pointer",marginBottom:20}}>📋 Ver mis citas</button>
+            )}
 
             {/* Services */}
             <div style={{fontSize:13,fontWeight:700,color:"#0f172a",marginBottom:12}}>Servicios disponibles</div>
@@ -833,7 +984,7 @@ export default function App() {
 
       {/* Tabs */}
       <div style={{background:"#fff",display:"flex",borderBottom:"1px solid #e2e8f0",padding:"0 20px",overflowX:"auto"}}>
-        {[{k:"empleados",l:`${sw}s`,i:"👥"},{k:"agenda",l:"Agenda",i:"📅"},{k:"servicios",l:"Servicios",i:"📋"},{k:"productos",l:"Productos",i:"🛍️"},{k:"galeria",l:"Galería",i:"📸"},{k:"espera",l:"Espera",i:"⏳"},{k:"fidelizacion",l:"Fidelización",i:"🎁"},{k:"config",l:"Config",i:"⚙️"}].map(t=>(
+        {[{k:"empleados",l:`${sw}s`,i:"👥"},{k:"agenda",l:"Agenda",i:"📅"},{k:"servicios",l:"Servicios",i:"📋"},{k:"productos",l:"Productos",i:"🛍️"},{k:"galeria",l:"Galería",i:"📸"},{k:"espera",l:"Espera",i:"⏳"},{k:"bloqueos",l:"Bloqueos",i:"🚫"},{k:"fidelizacion",l:"Fidelización",i:"🎁"},{k:"config",l:"Config",i:"⚙️"}].map(t=>(
           <button key={t.k} onClick={()=>setActiveTab(t.k)} style={{background:"transparent",border:"none",borderBottom:activeTab===t.k?`3px solid ${ac}`:"3px solid transparent",color:activeTab===t.k?ac:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:12,padding:"12px 14px 10px",cursor:"pointer",marginBottom:-1,whiteSpace:"nowrap"}}>{t.i} {t.l}</button>
         ))}
       </div>
@@ -911,9 +1062,24 @@ export default function App() {
           {/* Day view */}
           {agendaView==="dia" && (()=>{
             const dayAppts = appointments.filter(a=>a.fecha===agendaDate&&(agendaEmp==="todos"||a.empleado_id===agendaEmp));
+            const dayBloqueos = bloqueos.filter(b=>b.fecha===agendaDate&&(agendaEmp==="todos"||!b.empleado_id||b.empleado_id===agendaEmp));
             return (
               <div>
-                {dayAppts.length===0 && <div style={{textAlign:"center",padding:"48px 0",color:"#94a3b8",fontFamily:"'Space Mono',monospace",fontSize:12}}>SIN CITAS PARA ESTE DÍA</div>}
+                {dayBloqueos.map(b=>{
+                  const emp = employees.find(e=>e.id===b.empleado_id);
+                  const tipoCfg = TIPOS.find(t=>t.k===b.tipo)||TIPOS[0];
+                  return (
+                    <div key={`b-${b.id}`} style={{...card(),padding:"12px 16px",display:"flex",gap:12,marginBottom:8,borderLeft:`4px solid ${tipoCfg.c}`,background:`${tipoCfg.c}06`}}>
+                      <div style={{fontFamily:"'Space Mono',monospace",fontSize:12,fontWeight:700,color:tipoCfg.c,minWidth:48,paddingTop:2}}>{b.hora_inicio?.slice(0,5)}</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:700,color:tipoCfg.c}}>🚫 {b.motivo}</div>
+                        <div style={{fontSize:11,color:"#64748b",marginTop:2}}>Hasta {b.hora_fin?.slice(0,5)}{emp?` · ${emp.nombre}`:` · Todos`}</div>
+                      </div>
+                      <button onClick={()=>deleteBloqueo(b.id)} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:8,padding:"5px 8px",cursor:"pointer",fontSize:11,alignSelf:"center"}}>✕</button>
+                    </div>
+                  );
+                })}
+                {dayAppts.length===0 && dayBloqueos.length===0 && <div style={{textAlign:"center",padding:"48px 0",color:"#94a3b8",fontFamily:"'Space Mono',monospace",fontSize:12}}>SIN CITAS PARA ESTE DÍA</div>}
                 {dayAppts.sort((a,b)=>a.hora?.localeCompare(b.hora)).map(appt=>{
                   const emp = employees.find(e=>e.id===appt.empleado_id);
                   const svc = services.find(s=>s.id===appt.servicio_id);
@@ -1162,6 +1328,44 @@ export default function App() {
         </div>
       )}
 
+      {/* ── BLOQUEOS ── */}
+      {activeTab==="bloqueos" && (
+        <div style={{padding:"18px 20px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <div>
+              <div style={{fontSize:15,fontWeight:800,color:"#0f172a"}}>🚫 Horas no disponibles</div>
+              <div style={{fontSize:11,color:"#64748b",marginTop:2}}>Bloquea horarios para almuerzo, reservados o sin cita</div>
+            </div>
+            <button onClick={()=>setShowBloqueo(true)} style={{background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 14px",borderRadius:10,cursor:"pointer"}}>+ Agregar bloqueo</button>
+          </div>
+          {bloqueos.length===0 && (
+            <div style={{textAlign:"center",padding:"40px 0",color:"#94a3b8"}}>
+              <div style={{fontSize:40,marginBottom:10}}>🚫</div>
+              <div style={{fontFamily:"'Space Mono',monospace",fontSize:11}}>SIN BLOQUEOS · TODOS LOS HORARIOS DISPONIBLES</div>
+            </div>
+          )}
+          {bloqueos.map(b=>{
+            const emp = employees.find(e=>e.id===b.empleado_id);
+            const tipoCfg = TIPOS.find(t=>t.k===b.tipo)||TIPOS[0];
+            return (
+              <div key={b.id} style={{...card(),padding:"14px 16px",display:"flex",alignItems:"center",gap:14,marginBottom:10,borderLeft:`4px solid ${tipoCfg.c}`}}>
+                <div style={{width:40,height:40,background:`${tipoCfg.c}15`,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>🚫</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:14,fontWeight:700,color:"#0f172a"}}>{b.motivo}</div>
+                  <div style={{fontSize:11,color:"#64748b",marginTop:2}}>📅 {b.fecha} · 🕐 {b.hora_inicio?.slice(0,5)} – {b.hora_fin?.slice(0,5)}</div>
+                  {emp && <div style={{fontSize:10,color:emp.color,marginTop:2,fontWeight:600}}>👤 Solo para: {emp.nombre}</div>}
+                  {!emp && <div style={{fontSize:10,color:"#94a3b8",marginTop:2}}>Aplica a todos los empleados</div>}
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:6,alignItems:"flex-end"}}>
+                  <div style={{background:`${tipoCfg.c}15`,border:`1px solid ${tipoCfg.c}30`,borderRadius:20,padding:"3px 10px",fontSize:9,color:tipoCfg.c,fontFamily:"'Space Mono',monospace",fontWeight:600}}>{tipoCfg.l}</div>
+                  <button onClick={()=>deleteBloqueo(b.id)} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:8,padding:"5px 8px",cursor:"pointer",fontSize:11}}>✕ Eliminar</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* ── FIDELIZACIÓN ── */}
       {activeTab==="fidelizacion" && (
         <div style={{padding:"18px 20px"}}>
@@ -1337,6 +1541,49 @@ export default function App() {
             <div style={{display:"flex",gap:10}}>
               <button onClick={()=>setShowGal(false)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Cancelar</button>
               <button onClick={saveGal} disabled={!galFoto} style={{flex:2,background:galFoto?`linear-gradient(135deg,${ac},${ac}cc)`:"#e2e8f0",border:"none",color:galFoto?"#0f172a":"#94a3b8",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:galFoto?"pointer":"not-allowed"}}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal – Bloqueo */}
+      {showBloqueo && (
+        <div style={{position:"fixed",inset:0,background:"#0000004d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,padding:20}} onClick={()=>setShowBloqueo(false)}>
+          <div style={{...card(),borderRadius:20,padding:"24px 20px",width:"100%",maxWidth:440,animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:16,fontWeight:800,color:"#0f172a",marginBottom:20}}>🚫 Agregar bloqueo de horario</div>
+            <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:16}}>
+              <div>
+                <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>TIPO DE BLOQUEO</div>
+                <div style={{display:"flex",gap:8}}>
+                  {TIPOS.map(t=>(
+                    <button key={t.k} onClick={()=>setBloqueoF(f=>({...f,tipo:t.k,motivo:t.l}))} style={{flex:1,background:bloqueoF.tipo===t.k?`${t.c}20`:"#f1f5f9",border:`1px solid ${bloqueoF.tipo===t.k?t.c:"#e2e8f0"}`,color:bloqueoF.tipo===t.k?t.c:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:10,padding:"8px 4px",borderRadius:8,cursor:"pointer"}}>{t.l}</button>
+                  ))}
+                </div>
+              </div>
+              <select value={bloqueoF.empId} onChange={e=>setBloqueoF(f=>({...f,empId:e.target.value}))} style={inp()}>
+                <option value="">Todos los empleados</option>
+                {employees.map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}
+              </select>
+              <input value={bloqueoF.motivo} onChange={e=>setBloqueoF(f=>({...f,motivo:e.target.value}))} placeholder="Motivo (ej: Almuerzo, Reunión…)" style={inp()}/>
+              <input type="date" value={bloqueoF.fecha} onChange={e=>setBloqueoF(f=>({...f,fecha:e.target.value}))} style={inp()} min={todayStr}/>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                <div>
+                  <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>HORA INICIO</div>
+                  <select value={bloqueoF.horaInicio} onChange={e=>setBloqueoF(f=>({...f,horaInicio:e.target.value}))} style={inp()}>
+                    {HOURS.map(h=><option key={h} value={h}>{h}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>HORA FIN</div>
+                  <select value={bloqueoF.horaFin} onChange={e=>setBloqueoF(f=>({...f,horaFin:e.target.value}))} style={inp()}>
+                    {HOURS.map(h=><option key={h} value={h}>{h}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>setShowBloqueo(false)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Cancelar</button>
+              <button onClick={saveBloqueo} style={{flex:2,background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Guardar bloqueo</button>
             </div>
           </div>
         </div>
