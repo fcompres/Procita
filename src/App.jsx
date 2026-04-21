@@ -1642,7 +1642,7 @@ export default function App() {
             <div style={{background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 14px",fontSize:11,color:"#64748b",marginBottom:20,wordBreak:"break-all",fontFamily:"'Space Mono',monospace"}}>
               {window.location.origin}
             </div>
-            <div style={{display:"flex",gap:10"}}>
+            <div style={{display:"flex",gap:10}}>
               <a
                 href={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(window.location.origin)}&color=0f172a&bgcolor=ffffff`}
                 download="procita-qr.png"
