@@ -246,6 +246,8 @@ export default function App() {
   const [agendaDate,   setAgendaDate]   = useState(todayStr);
   const [agendaEmp,    setAgendaEmp]    = useState("todos");
   const [weekPopup,    setWeekPopup]    = useState(null);
+  const [showQR,       setShowQR]       = useState(false);
+  const [showPrint,    setShowPrint]    = useState(false);
   const [newAlert,     setNewAlert]     = useState(0);
   const [saving,       setSaving]       = useState(false);
 
@@ -1056,7 +1058,11 @@ export default function App() {
               <option value="todos">Todos</option>
               {employees.map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}
             </select>
-            <button onClick={openAddAppt} style={{background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 14px",borderRadius:10,cursor:"pointer",marginLeft:"auto"}}>+ Nueva cita</button>
+            <div style={{display:"flex",gap:6,marginLeft:"auto"}}>
+              <button onClick={()=>setShowPrint(true)} title="Imprimir agenda semanal" style={{background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#475569",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 12px",borderRadius:10,cursor:"pointer"}}>🖨️ Imprimir</button>
+              <button onClick={()=>setShowQR(true)} title="Código QR" style={{background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#475569",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 12px",borderRadius:10,cursor:"pointer"}}>📲 QR</button>
+              <button onClick={openAddAppt} style={{background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 14px",borderRadius:10,cursor:"pointer"}}>+ Nueva cita</button>
+            </div>
           </div>
 
           {/* Day view */}
@@ -1616,6 +1622,85 @@ export default function App() {
               <button onClick={()=>setShowAppt(false)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Cancelar</button>
               <button onClick={saveAppt} style={{flex:2,background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Guardar</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── QR MODAL ── */}
+      {showQR && (
+        <div style={{position:"fixed",inset:0,background:"#0000006d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:20}} onClick={()=>setShowQR(false)}>
+          <div style={{...card(),borderRadius:20,padding:"28px 24px",width:"100%",maxWidth:380,textAlign:"center",animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:16,fontWeight:800,color:"#0f172a",marginBottom:6}}>📲 Código QR</div>
+            <div style={{fontSize:12,color:"#64748b",marginBottom:20}}>Tus clientes escanean esto para abrir tu negocio directo</div>
+            <div style={{background:"#fff",border:"2px solid #e2e8f0",borderRadius:16,padding:16,marginBottom:16,display:"inline-block"}}>
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin)}&color=0f172a&bgcolor=ffffff`}
+                alt="QR Code"
+                style={{width:200,height:200,display:"block"}}
+              />
+            </div>
+            <div style={{background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 14px",fontSize:11,color:"#64748b",marginBottom:20,wordBreak:"break-all",fontFamily:"'Space Mono',monospace"}}>
+              {window.location.origin}
+            </div>
+            <div style={{display:"flex",gap:10"}}>
+              <a
+                href={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(window.location.origin)}&color=0f172a&bgcolor=ffffff`}
+                download="procita-qr.png"
+                target="_blank"
+                rel="noreferrer"
+                style={{flex:1,background:"linear-gradient(135deg,#E8C547,#f0a500)",borderRadius:10,padding:"11px",fontSize:13,fontFamily:"'Syne',sans-serif",fontWeight:800,color:"#0f172a",textDecoration:"none",display:"block",textAlign:"center"}}
+              >⬇️ Descargar QR</a>
+            </div>
+            <button onClick={()=>setShowQR(false)} style={{marginTop:10,background:"transparent",border:"none",color:"#94a3b8",fontFamily:"'Syne',sans-serif",fontSize:12,cursor:"pointer",width:"100%",padding:"8px"}}>Cerrar</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── PRINT MODAL ── */}
+      {showPrint && (
+        <div style={{position:"fixed",inset:0,background:"#0000006d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:20}} onClick={()=>setShowPrint(false)}>
+          <div style={{...card(),borderRadius:20,padding:"24px",width:"100%",maxWidth:480,animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <div style={{fontSize:16,fontWeight:800,color:"#0f172a"}}>🖨️ Imprimir agenda</div>
+              <button onClick={()=>setShowPrint(false)} style={{background:"#f1f5f9",border:"none",color:"#64748b",borderRadius:6,padding:"4px 8px",cursor:"pointer"}}>✕</button>
+            </div>
+            <div style={{fontSize:12,color:"#64748b",marginBottom:16}}>Citas de la semana del {weekDates[0]} al {weekDates[6]}</div>
+            <div id="printArea" style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:16,maxHeight:360,overflowY:"auto",marginBottom:16}}>
+              <div style={{textAlign:"center",marginBottom:12,paddingBottom:10,borderBottom:"2px solid #e2e8f0"}}>
+                <div style={{fontSize:18,fontWeight:800,color:"#0f172a"}}>{businessName}</div>
+                <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginTop:2}}>AGENDA SEMANAL — {weekDates[0]} AL {weekDates[6]}</div>
+              </div>
+              {weekDates.map(d=>{
+                const dayAppts = appointments.filter(a=>a.fecha===d).sort((a,b)=>a.hora?.localeCompare(b.hora));
+                if(dayAppts.length===0) return null;
+                const dayName = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"][new Date(d+"T00:00:00").getDay()];
+                return (
+                  <div key={d} style={{marginBottom:14}}>
+                    <div style={{fontSize:12,fontWeight:800,color:ac,marginBottom:6,paddingBottom:4,borderBottom:`1px solid ${ac}30`}}>{dayName} {d}</div>
+                    {dayAppts.map(a=>{
+                      const emp = employees.find(e=>e.id===a.empleado_id);
+                      const svc = services.find(s=>s.id===a.servicio_id);
+                      const sc  = APPT_STATUS[a.status]||APPT_STATUS.pendiente;
+                      return (
+                        <div key={a.id} style={{display:"flex",gap:10,padding:"6px 8px",marginBottom:4,background:"#f8fafc",borderRadius:8,borderLeft:`3px solid ${sc.color}`}}>
+                          <div style={{fontFamily:"'Space Mono',monospace",fontSize:11,fontWeight:700,color:ac,minWidth:44}}>{a.hora?.slice(0,5)}</div>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:12,fontWeight:700,color:"#0f172a"}}>{a.cliente_nombre}</div>
+                            <div style={{fontSize:10,color:"#64748b"}}>{svc?.nombre||"—"}{emp?` · ${emp.nombre}`:""}{a.cliente_telefono?` · 📞 ${a.cliente_telefono}`:""}</div>
+                          </div>
+                          <div style={{fontSize:9,color:sc.color,fontFamily:"'Space Mono',monospace",fontWeight:600,alignSelf:"center"}}>{sc.label}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+              {weekDates.every(d=>appointments.filter(a=>a.fecha===d).length===0) && (
+                <div style={{textAlign:"center",padding:"20px 0",color:"#94a3b8",fontFamily:"'Space Mono',monospace",fontSize:11}}>SIN CITAS ESTA SEMANA</div>
+              )}
+            </div>
+            <button onClick={()=>window.print()} style={{width:"100%",background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,padding:"13px",borderRadius:12,cursor:"pointer"}}>🖨️ Imprimir / Guardar PDF</button>
+            <div style={{fontSize:10,color:"#94a3b8",textAlign:"center",marginTop:8,fontFamily:"'Space Mono',monospace"}}>EN EL DIÁLOGO DE IMPRESIÓN ELIGE "GUARDAR COMO PDF" PARA DESCARGARLO</div>
           </div>
         </div>
       )}
