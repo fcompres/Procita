@@ -7,27 +7,26 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const BIZ_TYPES = [
-  { key:"barberia", label:"Barbería",           icon:"✂️", color:"#E8C547" },
-  { key:"salon",    label:"Salón de Belleza",    icon:"💇", color:"#F472B6" },
-  { key:"unas",     label:"Centro de Uñas",      icon:"💅", color:"#A78BFA" },
-  { key:"mixto",    label:"Centro de Belleza",   icon:"✨", color:"#4ECDC4" },
-  { key:"masajes",  label:"Masajes / Spa",        icon:"💆", color:"#34D399" },
-  { key:"domicilio",label:"Servicios a Domicilio",icon:"🏠", color:"#60A5FA" },
+  { key:"barberia", label:"Barbería",         icon:"✂️", color:"#E8C547" },
+  { key:"salon",    label:"Salón de Belleza",  icon:"💇", color:"#F472B6" },
+  { key:"unas",     label:"Centro de Uñas",    icon:"💅", color:"#A78BFA" },
+  { key:"mixto",    label:"Centro de Belleza", icon:"✨", color:"#4ECDC4" },
 ];
 const ROLES = {
-  barberia: ["Barbero","Aprendiz","Encargado"],
-  salon:    ["Estilista","Colorista","Asistente","Encargada"],
-  unas:     ["Técnica de Uñas","Manicurista","Encargada"],
-  mixto:    ["Estilista","Barbero","Técnica de Uñas","Encargado/a"],
-  masajes:  ["Masajista","Terapeuta","Esteticista","Encargado/a"],
-  domicilio:["Profesional","Estilista","Barbero","Técnica","Terapeuta"],
+  barberia:["Barbero","Aprendiz","Encargado"],
+  salon:   ["Estilista","Colorista","Asistente","Encargada"],
+  unas:    ["Técnica de Uñas","Manicurista","Encargada"],
+  mixto:   ["Estilista","Barbero","Técnica de Uñas","Encargado/a"],
 };
-const STATION = { barberia:"Silla", salon:"Silla", unas:"Mesa", mixto:"Puesto", masajes:"Camilla", domicilio:"Puesto" };
+const STATION = { barberia:"Silla", salon:"Silla", unas:"Mesa", mixto:"Puesto" };
 const COLORS  = ["#E8C547","#4ECDC4","#FF6B6B","#A78BFA","#F97316","#34D399","#F472B6","#60A5FA"];
 const SVC_EMOJI  = ["✂️","⚡","🧔","💈","🎨","💅","💆","🌟","👑","🔥"];
 const PROD_EMOJI = ["🧴","✂️","💈","🪒","💆","💅","🎨","🧼","🌿","⚡","🔥","🌟"];
 const HOURS = ["9:00","9:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00"];
 const DAYS  = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+const DIAS_SEMANA = ["lunes","martes","miercoles","jueves","viernes","sabado","domingo"];
+const DIAS_LABEL  = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
+const DEFAULT_HORARIO = { lunes:{inicio:"9:00",fin:"18:00"}, martes:{inicio:"9:00",fin:"18:00"}, miercoles:{inicio:"9:00",fin:"18:00"}, jueves:{inicio:"9:00",fin:"18:00"}, viernes:{inicio:"9:00",fin:"18:00"}, sabado:{inicio:"9:00",fin:"14:00"}, domingo:null };
 const STATUS_CFG  = { ocupado:{label:"Ocupado",dot:"#F59E0B"}, disponible:{label:"Disponible",dot:"#10B981"}, descanso:{label:"Descanso",dot:"#8B5CF6"} };
 const APPT_STATUS = { confirmada:{label:"Confirmada",color:"#10B981"}, pendiente:{label:"Pendiente",color:"#F59E0B"}, cancelada:{label:"Cancelada",color:"#EF4444"}, completada:{label:"Completada",color:"#6366F1"} };
 const today    = new Date();
@@ -40,14 +39,6 @@ const card = (x={}) => ({ background:"#fff", borderRadius:16, boxShadow:"0 2px 1
 const bg   = { minHeight:"100vh", background:"#f1f5f9", color:"#1e293b", fontFamily:"'Syne',sans-serif" };
 const CSS  = `@keyframes spin{to{transform:rotate(360deg)}}@keyframes slideUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}`;
 const f2b  = (file) => new Promise((res,rej)=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsDataURL(file); });
-const uploadToStorage = async (file, path) => {
-  const ext = file.name.split(".").pop();
-  const fileName = `${path}-${Date.now()}.${ext}`;
-  const { data, error } = await supabase.storage.from("imagenes").upload(fileName, file, { upsert:true, contentType:file.type });
-  if(error) { const url = await f2b(file); return url; }
-  const { data:pub } = supabase.storage.from("imagenes").getPublicUrl(fileName);
-  return pub.publicUrl;
-};
 const waMsg = (phone, neg, fecha, hora) => `https://wa.me/${phone.replace(/\D/g,"")}?text=${encodeURIComponent(`Hola, tu cita en ${neg} está confirmada para el ${fecha} a las ${hora}.`)}`;
 const waMsgDueno = (phone, neg, cliente, svc, fecha, hora) => `https://wa.me/${phone.replace(/\D/g,"")}?text=${encodeURIComponent(`🔔 Nueva cita en ${neg}!\n👤 Cliente: ${cliente}\n✂️ Servicio: ${svc}\n📅 Fecha: ${fecha}\n🕐 Hora: ${hora}`)}`;
 const addToCalendar = (neg, svc, fecha, hora) => { const dt=fecha.replace(/-/g,""); const h=hora.replace(":",""); const end=`${dt}T${h}00`; const start=`${dt}T${h}00`; return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Cita en ${neg}`)}&details=${encodeURIComponent(`Servicio: ${svc}`)}&dates=${start}/${end}`; };
@@ -249,8 +240,6 @@ export default function App() {
   const [negWA,        setNegWA]        = useState("");
   const [fidelActiva,  setFidelActiva]  = useState(false);
   const [citasPremio,  setCitasPremio]  = useState(5);
-  const [domActivo,    setDomActivo]    = useState(false);
-  const [domCosto,     setDomCosto]     = useState(0);
 
   // Admin UI
   const [activeTab,    setActiveTab]    = useState("empleados");
@@ -262,12 +251,17 @@ export default function App() {
   const [weekPopup,    setWeekPopup]    = useState(null);
   const [newAlert,     setNewAlert]     = useState(0);
   const [saving,       setSaving]       = useState(false);
+  const [showQR,       setShowQR]       = useState(false);
+  const [showPrint,    setShowPrint]    = useState(false);
 
   // Modals – employee
   const [showEmp,  setShowEmp]  = useState(false);
   const [empName,  setEmpName]  = useState("");
   const [empRole,  setEmpRole]  = useState("");
   const [empSpec,  setEmpSpec]  = useState("");
+  const [showEditEmp,  setShowEditEmp]  = useState(null);
+  const [editEmpFoto,  setEditEmpFoto]  = useState("");
+  const [editEmpHorario, setEditEmpHorario] = useState(DEFAULT_HORARIO);
 
   // Modals – service
   const [showSvc,  setShowSvc]  = useState(false);
@@ -310,8 +304,6 @@ export default function App() {
   const [bkTime,     setBkTime]     = useState(null);
   const [bkName,     setBkName]     = useState("");
   const [bkPhone,    setBkPhone]    = useState("");
-  const [bkDomicilio, setBkDomicilio] = useState(false);
-  const [bkDireccion, setBkDireccion] = useState("");
   const [misCitas,   setMisCitas]   = useState([]);
   const [miNombre,   setMiNombre]   = useState(localStorage.getItem("cutq_nombre")||"");
   const [showReschedule, setShowReschedule] = useState(null);
@@ -364,7 +356,7 @@ export default function App() {
     setResenas(r6.data||[]);
     setListaEspera(r7.data||[]);
     setBloqueos(r9.data||[]);
-    if(r8.data){ setFidelActiva(r8.data.fidelizacion_activa||false); setCitasPremio(r8.data.citas_x_premio||5); setNegWA(r8.data.whatsapp||""); setDomActivo(r8.data.domicilio_activo||false); setDomCosto(r8.data.domicilio_costo||0); }
+    if(r8.data){ setFidelActiva(r8.data.fidelizacion_activa||false); setCitasPremio(r8.data.citas_x_premio||5); setNegWA(r8.data.whatsapp||""); }
   };
 
   // ── AUTH ACTIONS ───────────────────────────────────────────────────────────
@@ -413,6 +405,14 @@ export default function App() {
   };
   const changeStatus = async (id,status) => { await supabase.from("empleados").update({status}).eq("id",id); setEmployees(p=>p.map(e=>e.id===id?{...e,status}:e)); setSelEmp(null); };
   const removeEmp    = async (id)         => { await supabase.from("empleados").delete().eq("id",id); setEmployees(p=>p.filter(e=>e.id!==id)); setSelEmp(null); };
+  const openEditEmp  = (emp) => { setShowEditEmp(emp); setEditEmpFoto(emp.foto_url||""); setEditEmpHorario(emp.horario||DEFAULT_HORARIO); };
+  const saveEditEmp  = async () => {
+    if(!showEditEmp) return;
+    const upd = {foto_url:editEmpFoto||null, horario:editEmpHorario};
+    await supabase.from("empleados").update(upd).eq("id",showEditEmp.id);
+    setEmployees(p=>p.map(e=>e.id===showEditEmp.id?{...e,...upd}:e));
+    setShowEditEmp(null);
+  };
 
   // ── SERVICE ACTIONS ────────────────────────────────────────────────────────
   const openAddSvc  = ()  => { setEditSvc(null); setSvcF({name:"",cat:"",price:"",dur:"",emoji:"✂️",desc:"",foto:""}); setShowSvc(true); };
@@ -491,13 +491,15 @@ export default function App() {
     if(!bkName.trim()||!bkTime) return;
     const nId = selectedNeg?.id||negocioId;
     const negNombre = selectedNeg?.nombre||businessName;
-    const {data} = await supabase.from("citas").insert({negocio_id:nId,cliente_nombre:bkName,cliente_telefono:bkPhone,empleado_id:bkEmp?.id||null,servicio_id:bkSvc?.id||null,fecha:bkDate,hora:bkTime,status:"pendiente",es_domicilio:bkDomicilio,direccion_cliente:bkDomicilio?bkDireccion:null}).select().single();
+    const {data} = await supabase.from("citas").insert({negocio_id:nId,cliente_nombre:bkName,cliente_telefono:bkPhone,empleado_id:bkEmp?.id||null,servicio_id:bkSvc?.id||null,fecha:bkDate,hora:bkTime,status:"pendiente"}).select().single();
     if(data){ setAppointments(p=>[...p,data]); setNewAlert(n=>n+1); }
+    // Save name for future
     localStorage.setItem("cutq_nombre", bkName);
     setMiNombre(bkName);
+    // Auto WhatsApp to business owner
     const negWANum = selectedNeg?.whatsapp || negWA;
     if(negWANum) {
-      const waUrl = `https://wa.me/${negWANum.replace(/\D/g,"")}?text=${encodeURIComponent(`🔔 Nueva cita en ${negNombre}!\n👤 Cliente: ${bkName}\n✂️ Servicio: ${bkSvc?.nombre||"Servicio"}\n📅 Fecha: ${bkDate}\n🕐 Hora: ${bkTime}${bkDomicilio?`\n🏠 A DOMICILIO${bkDireccion?`: ${bkDireccion}`:""}`:""}`)}`;
+      const waUrl = waMsgDueno(negWANum, negNombre, bkName, bkSvc?.nombre||"Servicio", bkDate, bkTime);
       window.open(waUrl, "_blank");
     }
     setClientView("confirm");
@@ -615,7 +617,7 @@ export default function App() {
             <div style={{fontSize:20,fontWeight:800,color:"#0f172a",marginBottom:6}}>¡Cita confirmada!</div>
             <div style={{fontSize:12,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:24}}>TE ESPERAMOS</div>
             <div style={{...card(),padding:20,textAlign:"left",maxWidth:340,margin:"0 auto 20px"}}>
-              {[[`${bt.icon} Servicio`,bkSvc?.nombre],[`💰 Precio`,bkDomicilio&&(domCosto||(selectedNeg?.domicilio_costo))>0?`$${(bkSvc?.precio||0)+(domCosto||selectedNeg?.domicilio_costo||0)} (incluye domicilio)`:bkSvc?`$${bkSvc.precio}`:null],[`📍 Modalidad`,bkDomicilio?`🏠 A domicilio`:`🏪 En el local`],[bkDomicilio?`🗺️ Dirección`:null,bkDireccion||null],[`👤 Profesional`,bkEmp?.nombre||"Cualquier disponible"],[`📅 Fecha`,bkDate],[`🕐 Hora`,bkTime],[`👤 Cliente`,bkName]].filter(([l,v])=>l&&v).map(([l,v])=>(
+              {[[`${bt.icon} Servicio`,bkSvc?.nombre],[`💰 Precio`,`$${bkSvc?.precio}`],[`👤 Profesional`,bkEmp?.nombre||"Cualquier disponible"],[`📅 Fecha`,bkDate],[`🕐 Hora`,bkTime],[`👤 Cliente`,bkName]].filter(([,v])=>v).map(([l,v])=>(
                 <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #f1f5f9"}}>
                   <span style={{fontSize:11,color:"#64748b"}}>{l}</span>
                   <span style={{fontSize:12,fontWeight:600,color:"#0f172a"}}>{v}</span>
@@ -631,7 +633,7 @@ export default function App() {
               📅 Agregar a Google Calendar
             </a>
             <div style={{display:"flex",gap:10,maxWidth:340,margin:"10px auto 0"}}>
-              <button onClick={()=>{setClientView("home");setStep(1);setBkSvc(null);setBkEmp(null);setBkTime(null);setBkName("");setBkPhone("");setBkDomicilio(false);setBkDireccion("");}} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"12px",borderRadius:12,cursor:"pointer"}}>Nueva cita</button>
+              <button onClick={()=>{setClientView("home");setStep(1);setBkSvc(null);setBkEmp(null);setBkTime(null);setBkName("");setBkPhone("");}} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"12px",borderRadius:12,cursor:"pointer"}}>Nueva cita</button>
               <button onClick={()=>setScreen("directory")} style={{flex:1,background:`linear-gradient(135deg,${cc},${cc}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"12px",borderRadius:12,cursor:"pointer"}}>Más negocios</button>
             </div>
           </div>
@@ -748,16 +750,6 @@ export default function App() {
                 <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
                   <input value={bkName} onChange={e=>setBkName(e.target.value)} placeholder="Tu nombre completo *" style={inp()}/>
                   <input value={bkPhone} onChange={e=>setBkPhone(e.target.value)} placeholder="Teléfono / WhatsApp (opcional)" style={inp()}/>
-                  {(domActivo||(selectedNeg?.domicilio_activo))&&(
-                    <div style={{...card(),padding:14}}>
-                      <div style={{fontSize:11,fontFamily:"'Space Mono',monospace",color:"#64748b",marginBottom:10}}>MODALIDAD DEL SERVICIO</div>
-                      <div style={{display:"flex",gap:10,marginBottom:bkDomicilio?10:0}}>
-                        <button onClick={()=>setBkDomicilio(false)} style={{flex:1,padding:"10px",borderRadius:10,border:`2px solid ${!bkDomicilio?cc:"#e2e8f0"}`,background:!bkDomicilio?`${cc}15`:"#f8fafc",color:!bkDomicilio?cc:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:12,cursor:"pointer"}}>🏪 En el local</button>
-                        <button onClick={()=>setBkDomicilio(true)} style={{flex:1,padding:"10px",borderRadius:10,border:`2px solid ${bkDomicilio?cc:"#e2e8f0"}`,background:bkDomicilio?`${cc}15`:"#f8fafc",color:bkDomicilio?cc:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:12,cursor:"pointer"}}>🏠 A domicilio{(domCosto||(selectedNeg?.domicilio_costo))>0?` (+$${domCosto||selectedNeg?.domicilio_costo})`:"" }</button>
-                      </div>
-                      {bkDomicilio&&<input value={bkDireccion} onChange={e=>setBkDireccion(e.target.value)} placeholder="Tu dirección completa *" style={inp()}/>}
-                    </div>
-                  )}
                 </div>
                 <div style={{display:"flex",gap:10}}>
                   <button onClick={()=>setStep(3)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>← Volver</button>
@@ -987,7 +979,7 @@ export default function App() {
             <div onClick={()=>document.getElementById("fotoNeg").click()} style={{width:44,height:44,borderRadius:13,border:`2px solid ${ac}50`,overflow:"hidden",flexShrink:0,cursor:"pointer",...(negocioFoto?{backgroundImage:`url(${negocioFoto})`,backgroundSize:"cover",backgroundPosition:"center"}:{background:`${ac}20`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20})}}>
               {!negocioFoto && biz.icon}
             </div>
-            <input id="fotoNeg" type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{ const f=e.target.files[0]; if(f){ const url=await uploadToStorage(f,"negocio"); setNegocioFoto(url); await supabase.from("negocios").update({foto_url:url}).eq("id",negocioId); } }}/>
+            <input id="fotoNeg" type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{ const f=e.target.files[0]; if(f){ const url=await f2b(f); setNegocioFoto(url); await supabase.from("negocios").update({foto_url:url}).eq("id",negocioId); } }}/>
             <div>
               <div style={{fontSize:15,fontWeight:800,color:"#0f172a"}}>{businessName}</div>
               <div style={{fontSize:9,color:ac,fontFamily:"'Space Mono',monospace"}}>{biz.label.toUpperCase()} · {employees.length} EMPLEADOS</div>
@@ -1117,7 +1109,6 @@ export default function App() {
                             <div style={{fontSize:14,fontWeight:700,color:"#0f172a"}}>{appt.cliente_nombre}</div>
                             <div style={{fontSize:11,color:"#64748b",marginTop:2}}>{svc?.emoji} {svc?.nombre}{svc?.duracion&&` · ${svc.duracion}min`}</div>
                             {emp && <div style={{fontSize:10,color:emp.color,marginTop:2,fontWeight:600}}>{emp.nombre}</div>}
-                            {appt.es_domicilio&&<div style={{display:"inline-flex",alignItems:"center",gap:4,background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:6,padding:"3px 8px",fontSize:10,color:"#1D4ED8",fontWeight:600,marginTop:4}}>🏠 A domicilio{appt.direccion_cliente?` · ${appt.direccion_cliente}`:""}</div>}
                             {appt.cliente_telefono && (
                               <div style={{display:"flex",gap:6,marginTop:6}}>
                                 <a href={`tel:${appt.cliente_telefono}`} style={{background:"#EFF6FF",border:"1px solid #BFDBFE",color:"#1D4ED8",borderRadius:6,padding:"4px 10px",fontSize:10,fontFamily:"'Syne',sans-serif",fontWeight:600,textDecoration:"none"}}>📞 Llamar</a>
@@ -1160,7 +1151,7 @@ export default function App() {
                       const sc  = APPT_STATUS[a.status]||APPT_STATUS.pendiente;
                       return (
                         <div>
-                          {[["👤 Cliente",a.cliente_nombre],["📞 Teléfono",a.cliente_telefono||"—"],["📍 Modalidad",a.es_domicilio?"🏠 A domicilio":"🏪 En el local"],a.es_domicilio&&a.direccion_cliente?["🗺️ Dirección",a.direccion_cliente]:null,["✂️ Servicio",svc?.nombre||"—"],["💰 Precio",svc?`$${svc.precio}`:"—"],["⏱ Duración",svc?`${svc.duracion} min`:"—"],["👨 Profesional",emp?.nombre||"—"],["📅 Fecha",a.fecha],["🕐 Hora",a.hora?.slice(0,5)]].filter(Boolean).map(([l,v])=>(
+                          {[["👤 Cliente",a.cliente_nombre],["📞 Teléfono",a.cliente_telefono||"—"],["✂️ Servicio",svc?.nombre||"—"],["💰 Precio",svc?`$${svc.precio}`:"—"],["⏱ Duración",svc?`${svc.duracion} min`:"—"],["👨 Profesional",emp?.nombre||"—"],["📅 Fecha",a.fecha],["🕐 Hora",a.hora?.slice(0,5)]].map(([l,v])=>(
                             <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #f1f5f9"}}>
                               <span style={{fontSize:11,color:"#64748b"}}>{l}</span>
                               <span style={{fontSize:12,fontWeight:600,color:"#0f172a"}}>{v}</span>
@@ -1440,25 +1431,6 @@ export default function App() {
               </div>
             </div>
             <div style={{...card(),padding:16}}>
-              <div style={{fontSize:12,fontWeight:700,color:"#334155",marginBottom:10}}>🏠 Servicio a domicilio</div>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:domActivo?12:0}}>
-                <div>
-                  <div style={{fontSize:13,fontWeight:600,color:"#0f172a"}}>Ofrecer servicio a domicilio</div>
-                  <div style={{fontSize:11,color:"#64748b",marginTop:2}}>Los clientes podrán elegir si quieren el servicio en el local o en su casa</div>
-                </div>
-                <button onClick={async()=>{ const v=!domActivo; setDomActivo(v); await supabase.from("negocios").update({domicilio_activo:v}).eq("id",negocioId); }} style={{width:48,height:26,borderRadius:99,background:domActivo?"#10B981":"#e2e8f0",border:"none",cursor:"pointer",position:"relative",transition:"background .2s",flexShrink:0}}>
-                  <div style={{width:20,height:20,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:domActivo?25:3,transition:"left .2s"}}/>
-                </button>
-              </div>
-              {domActivo&&(
-                <div>
-                  <div style={{fontSize:11,color:"#64748b",marginBottom:6,fontFamily:"'Space Mono',monospace"}}>COSTO ADICIONAL A DOMICILIO ($)</div>
-                  <input type="number" defaultValue={domCosto} placeholder="Ej: 200" style={inp()} onBlur={async e=>{ const v=Number(e.target.value)||0; setDomCosto(v); await supabase.from("negocios").update({domicilio_costo:v}).eq("id",negocioId); }}/>
-                  <div style={{fontSize:11,color:"#94a3b8",marginTop:6}}>Pon 0 si el servicio a domicilio no tiene costo adicional</div>
-                </div>
-              )}
-            </div>
-            <div style={{...card(),padding:16}}>
               <div style={{fontSize:12,fontWeight:700,color:"#334155",marginBottom:4}}>🗑️ Zona de peligro</div>
               <div style={{fontSize:11,color:"#64748b",marginBottom:12}}>Esta acción es irreversible. Se eliminará el negocio y todos sus datos.</div>
               <button onClick={deleteNegocio} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:13,padding:"10px 20px",borderRadius:10,cursor:"pointer"}}>🗑️ Eliminar mi negocio</button>
@@ -1503,7 +1475,7 @@ export default function App() {
                   {svcF.foto && <img src={svcF.foto} style={{width:60,height:60,borderRadius:10,objectFit:"cover",border:"1px solid #e2e8f0"}} alt=""/>}
                   <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600}}>
                     📷 {svcF.foto?"Cambiar":"Subir foto"}
-                    <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{ const f=e.target.files[0]; if(f){ const url=await uploadToStorage(f,"servicio"); setSvcF(x=>({...x,foto:url})); } }}/>
+                    <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{ const f=e.target.files[0]; if(f){ const url=await f2b(f); setSvcF(x=>({...x,foto:url})); } }}/>
                   </label>
                   {svcF.foto && <button onClick={()=>setSvcF(x=>({...x,foto:""}))} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11}}>✕</button>}
                 </div>
@@ -1542,7 +1514,7 @@ export default function App() {
                   {prodF.foto && <img src={prodF.foto} style={{width:60,height:60,borderRadius:10,objectFit:"cover",border:"1px solid #e2e8f0"}} alt=""/>}
                   <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600}}>
                     📷 {prodF.foto?"Cambiar":"Subir foto"}
-                    <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{ const f=e.target.files[0]; if(f){ const url=await uploadToStorage(f,"producto"); setProdF(x=>({...x,foto:url})); } }}/>
+                    <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{ const f=e.target.files[0]; if(f){ const url=await f2b(f); setProdF(x=>({...x,foto:url})); } }}/>
                   </label>
                   {prodF.foto && <button onClick={()=>setProdF(x=>({...x,foto:""}))} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11}}>✕</button>}
                 </div>
@@ -1654,6 +1626,291 @@ export default function App() {
                 <select value={apptF.time} onChange={e=>setApptF(f=>({...f,time:e.target.value}))} style={inp()}>
                   {HOURS.map(h=><option key={h} value={h}>{h}</option>)}
                 </select>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>setShowAppt(false)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Cancelar</button>
+              <button onClick={saveAppt} style={{flex:2,background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+</div>
+              <div style={{fontSize:11,color:"#64748b",marginBottom:12}}>Esta acción es irreversible.</div>
+              <button onClick={deleteNegocio} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:13,padding:"10px 20px",borderRadius:10,cursor:"pointer"}}>🗑️ Eliminar mi negocio</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL – Edit Employee (foto + horario) */}
+      {showEditEmp&&(
+        <div style={{position:"fixed",inset:0,background:"#0000004d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:20}} onClick={()=>setShowEditEmp(null)}>
+          <div style={{...card(),borderRadius:20,padding:"24px 20px",width:"100%",maxWidth:480,maxHeight:"92vh",overflowY:"auto",animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:16,fontWeight:800,color:"#0f172a",marginBottom:4}}>📷 Foto y horario — {showEditEmp.nombre}</div>
+            <div style={{fontSize:11,color:"#64748b",marginBottom:20}}>La foto aparecerá en la app para que los clientes elijan al profesional</div>
+            <div style={{marginBottom:20}}>
+              <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:10}}>FOTO DEL EMPLEADO</div>
+              <div style={{display:"flex",alignItems:"center",gap:14}}>
+                <div style={{width:72,height:72,borderRadius:"50%",overflow:"hidden",border:`2px solid ${showEditEmp.color}40`,background:`${showEditEmp.color}20`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,fontWeight:800,color:showEditEmp.color,flexShrink:0}}>
+                  {editEmpFoto?<img src={editEmpFoto} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>:showEditEmp.avatar}
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600}}>
+                    📷 {editEmpFoto?"Cambiar foto":"Subir foto"}
+                    <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(f){const url=await f2b(f);setEditEmpFoto(url);}}}/>
+                  </label>
+                  {editEmpFoto&&<button onClick={()=>setEditEmpFoto("")} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11,fontFamily:"'Syne',sans-serif"}}>✕ Quitar foto</button>}
+                </div>
+              </div>
+            </div>
+            <div style={{marginBottom:20}}>
+              <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:10}}>HORARIO DE TRABAJO</div>
+              {DIAS_SEMANA.map((dia,i)=>{
+                const h=editEmpHorario[dia];
+                return (
+                  <div key={dia} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,padding:"10px 14px",background:h?"#f8fafc":"#FFF5F5",borderRadius:10,border:`1px solid ${h?"#e2e8f0":"#FECACA"}`}}>
+                    <div style={{width:60,fontSize:12,fontWeight:700,color:h?"#334155":"#94a3b8"}}>{DIAS_LABEL[i]}</div>
+                    {h?(
+                      <>
+                        <select value={h.inicio} onChange={e=>setEditEmpHorario(p=>({...p,[dia]:{...p[dia],inicio:e.target.value}}))} style={{...inp({width:"auto",fontSize:11,padding:"6px 8px"})}}>
+                          {HOURS.map(hh=><option key={hh} value={hh}>{hh}</option>)}
+                        </select>
+                        <span style={{fontSize:11,color:"#94a3b8"}}>–</span>
+                        <select value={h.fin} onChange={e=>setEditEmpHorario(p=>({...p,[dia]:{...p[dia],fin:e.target.value}}))} style={{...inp({width:"auto",fontSize:11,padding:"6px 8px"})}}>
+                          {HOURS.map(hh=><option key={hh} value={hh}>{hh}</option>)}
+                        </select>
+                        <button onClick={()=>setEditEmpHorario(p=>({...p,[dia]:null}))} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:6,padding:"5px 8px",cursor:"pointer",fontSize:10,whiteSpace:"nowrap"}}>Libre</button>
+                      </>
+                    ):(
+                      <>
+                        <div style={{flex:1,fontSize:11,color:"#DC2626",fontFamily:"'Space Mono',monospace"}}>DÍA LIBRE</div>
+                        <button onClick={()=>setEditEmpHorario(p=>({...p,[dia]:{inicio:"9:00",fin:"18:00"}}))} style={{background:"#D1FAE5",border:"1px solid #6EE7B7",color:"#065F46",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:10,fontFamily:"'Syne',sans-serif",fontWeight:600}}>+ Activar</button>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>setShowEditEmp(null)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Cancelar</button>
+              <button onClick={saveEditEmp} style={{flex:2,background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Guardar cambios</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL – QR */}
+      {showQR&&(
+        <div style={{position:"fixed",inset:0,background:"#0000004d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:20}} onClick={()=>setShowQR(false)}>
+          <div style={{...card(),borderRadius:20,padding:"28px 24px",width:"100%",maxWidth:340,textAlign:"center",animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:16,fontWeight:800,color:"#0f172a",marginBottom:4}}>📲 Código QR</div>
+            <div style={{fontSize:11,color:"#64748b",marginBottom:20,fontFamily:"'Space Mono',monospace"}}>COMPARTE CON TUS CLIENTES</div>
+            <img src={qrUrl(APP_URL)} style={{width:200,height:200,margin:"0 auto 16px",display:"block",borderRadius:12,border:"1px solid #e2e8f0"}} alt="QR"/>
+            <div style={{fontSize:11,color:"#94a3b8",marginBottom:20,wordBreak:"break-all"}}>{APP_URL}</div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>setShowQR(false)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Cerrar</button>
+              <a href={qrUrl(APP_URL)} download="qr-procita.png" target="_blank" rel="noreferrer" style={{flex:2,background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer",textDecoration:"none",display:"flex",alignItems:"center",justifyContent:"center"}}>⬇ Descargar QR</a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL – Print week */}
+      {showPrint&&(
+        <div style={{position:"fixed",inset:0,background:"#0000004d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:20}} onClick={()=>setShowPrint(false)}>
+          <div style={{...card(),borderRadius:20,padding:"24px 20px",width:"100%",maxWidth:640,maxHeight:"90vh",overflowY:"auto",animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <div>
+                <div style={{fontSize:16,fontWeight:800,color:"#0f172a"}}>🖨️ Agenda de la semana</div>
+                <div style={{fontSize:11,color:"#64748b",marginTop:2,fontFamily:"'Space Mono',monospace"}}>{businessName.toUpperCase()}</div>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>window.print()} style={{background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:12,padding:"9px 16px",borderRadius:10,cursor:"pointer"}}>🖨️ Imprimir / PDF</button>
+                <button onClick={()=>setShowPrint(false)} style={{background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:12,padding:"9px 12px",borderRadius:10,cursor:"pointer"}}>✕</button>
+              </div>
+            </div>
+            {weekDates.map(d=>{
+              const dayAppts=appointments.filter(a=>a.fecha===d).sort((a,b)=>a.hora?.localeCompare(b.hora));
+              if(dayAppts.length===0)return null;
+              const dayName=new Date(d).toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"});
+              return (
+                <div key={d} style={{marginBottom:20}}>
+                  <div style={{fontSize:13,fontWeight:700,color:ac,marginBottom:8,paddingBottom:6,borderBottom:`2px solid ${ac}30`,textTransform:"capitalize"}}>{dayName}</div>
+                  {dayAppts.map(appt=>{
+                    const emp=employees.find(e=>e.id===appt.empleado_id);
+                    const svc=services.find(s=>s.id===appt.servicio_id);
+                    const sc=APPT_STATUS[appt.status]||APPT_STATUS.pendiente;
+                    return (
+                      <div key={appt.id} style={{display:"flex",gap:12,padding:"8px 12px",marginBottom:6,borderRadius:8,background:`${sc.color}08`,border:`1px solid ${sc.color}20`}}>
+                        <div style={{fontFamily:"'Space Mono',monospace",fontSize:12,fontWeight:700,color:ac,minWidth:44}}>{appt.hora?.slice(0,5)}</div>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:13,fontWeight:700,color:"#0f172a"}}>{appt.cliente_nombre}</div>
+                          <div style={{fontSize:11,color:"#64748b"}}>{svc?.nombre||"—"} {emp?`· ${emp.nombre}`:""} {appt.cliente_telefono?`· 📞 ${appt.cliente_telefono}`:""}</div>
+                        </div>
+                        <div style={{fontSize:9,color:sc.color,fontFamily:"'Space Mono',monospace",fontWeight:600,alignSelf:"center"}}>{sc.label}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+            {weekDates.every(d=>appointments.filter(a=>a.fecha===d).length===0)&&(
+              <div style={{textAlign:"center",padding:"32px 0",color:"#94a3b8",fontFamily:"'Space Mono',monospace",fontSize:12}}>SIN CITAS ESTA SEMANA</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL – Employee */}
+      {showEmp&&(
+        <div style={{position:"fixed",inset:0,background:"#0000004d",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:100}} onClick={()=>setShowEmp(false)}>
+          <div style={{...card(),borderRadius:"20px 20px 0 0",padding:"24px 20px 36px",width:"100%",maxWidth:480,animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
+            <div style={{width:36,height:4,background:"#e2e8f0",borderRadius:2,margin:"0 auto 20px"}}/>
+            <div style={{fontSize:16,fontWeight:800,color:"#0f172a",marginBottom:20}}>Nuevo empleado — {sw} {employees.length+1}</div>
+            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
+              <input value={empName} onChange={e=>setEmpName(e.target.value)} placeholder="Nombre completo" style={inp()}/>
+              <select value={empRole} onChange={e=>setEmpRole(e.target.value)} style={inp()}>
+                <option value="">Selecciona un rol</option>{roles.map(r=><option key={r} value={r}>{r}</option>)}
+              </select>
+              <input value={empSpec} onChange={e=>setEmpSpec(e.target.value)} placeholder="Especialidad" style={inp()}/>
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>setShowEmp(false)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Cancelar</button>
+              <button onClick={addEmp} style={{flex:2,background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Agregar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL – Service */}
+      {showSvc&&(
+        <div style={{position:"fixed",inset:0,background:"#0000004d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,padding:20}} onClick={()=>setShowSvc(false)}>
+          <div style={{...card(),borderRadius:20,padding:"24px 20px",width:"100%",maxWidth:440,maxHeight:"92vh",overflowY:"auto",animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:16,fontWeight:800,color:"#0f172a",marginBottom:20}}>{editSvc?"Editar servicio":"Nuevo servicio"}</div>
+            <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:16}}>
+              <div>
+                <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>FOTO (OPCIONAL)</div>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  {svcF.foto&&<img src={svcF.foto} style={{width:60,height:60,borderRadius:10,objectFit:"cover",border:"1px solid #e2e8f0"}} alt=""/>}
+                  <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600}}>📷 {svcF.foto?"Cambiar":"Subir foto"}<input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(f){const url=await f2b(f);setSvcF(x=>({...x,foto:url}));}}}/></label>
+                  {svcF.foto&&<button onClick={()=>setSvcF(x=>({...x,foto:""}))} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11}}>✕</button>}
+                </div>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>EMOJI</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{SVC_EMOJI.map(e=><button key={e} onClick={()=>setSvcF(f=>({...f,emoji:e}))} style={{width:38,height:38,background:svcF.emoji===e?`${ac}20`:"#f8fafc",border:`1px solid ${svcF.emoji===e?ac:"#e2e8f0"}`,borderRadius:10,cursor:"pointer",fontSize:18}}>{e}</button>)}</div>
+              </div>
+              <input value={svcF.name} onChange={e=>setSvcF(f=>({...f,name:e.target.value}))} placeholder="Nombre del servicio *" style={inp()}/>
+              <input value={svcF.cat} onChange={e=>setSvcF(f=>({...f,cat:e.target.value}))} placeholder="Categoría (ej: Corte, Barba, Color…)" style={inp()}/>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                <input type="number" value={svcF.price} onChange={e=>setSvcF(f=>({...f,price:e.target.value}))} placeholder="Precio $" style={inp()}/>
+                <input type="number" value={svcF.dur} onChange={e=>setSvcF(f=>({...f,dur:e.target.value}))} placeholder="Duración min" style={inp()}/>
+              </div>
+              <textarea value={svcF.desc} onChange={e=>setSvcF(f=>({...f,desc:e.target.value}))} placeholder="Descripción (opcional)" rows={2} style={inp({resize:"none"})}/>
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>setShowSvc(false)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Cancelar</button>
+              <button onClick={saveSvc} style={{flex:2,background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL – Product */}
+      {showProd&&(
+        <div style={{position:"fixed",inset:0,background:"#0000004d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,padding:20}} onClick={()=>setShowProd(false)}>
+          <div style={{...card(),borderRadius:20,padding:"24px 20px",width:"100%",maxWidth:440,maxHeight:"92vh",overflowY:"auto",animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:16,fontWeight:800,color:"#0f172a",marginBottom:20}}>{editProd?"Editar producto":"Nuevo producto"}</div>
+            <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:16}}>
+              <div>
+                <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>FOTO (OPCIONAL)</div>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  {prodF.foto&&<img src={prodF.foto} style={{width:60,height:60,borderRadius:10,objectFit:"cover",border:"1px solid #e2e8f0"}} alt=""/>}
+                  <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600}}>📷 {prodF.foto?"Cambiar":"Subir foto"}<input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(f){const url=await f2b(f);setProdF(x=>({...x,foto:url}));}}}/></label>
+                  {prodF.foto&&<button onClick={()=>setProdF(x=>({...x,foto:""}))} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11}}>✕</button>}
+                </div>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>EMOJI</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{PROD_EMOJI.map(e=><button key={e} onClick={()=>setProdF(f=>({...f,emoji:e}))} style={{width:38,height:38,background:prodF.emoji===e?`${ac}20`:"#f8fafc",border:`1px solid ${prodF.emoji===e?ac:"#e2e8f0"}`,borderRadius:10,cursor:"pointer",fontSize:18}}>{e}</button>)}</div>
+              </div>
+              <input value={prodF.name} onChange={e=>setProdF(f=>({...f,name:e.target.value}))} placeholder="Nombre del producto *" style={inp()}/>
+              <input value={prodF.cat} onChange={e=>setProdF(f=>({...f,cat:e.target.value}))} placeholder="Categoría" style={inp()}/>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                <input type="number" value={prodF.price} onChange={e=>setProdF(f=>({...f,price:e.target.value}))} placeholder="Precio $" style={inp()}/>
+                <input type="number" value={prodF.stock} onChange={e=>setProdF(f=>({...f,stock:e.target.value}))} placeholder="Stock" style={inp()}/>
+              </div>
+              <textarea value={prodF.desc} onChange={e=>setProdF(f=>({...f,desc:e.target.value}))} placeholder="Descripción (opcional)" rows={2} style={inp({resize:"none"})}/>
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>setShowProd(false)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Cancelar</button>
+              <button onClick={saveProd} style={{flex:2,background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL – Gallery */}
+      {showGal&&(
+        <div style={{position:"fixed",inset:0,background:"#0000004d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,padding:20}} onClick={()=>setShowGal(false)}>
+          <div style={{...card(),borderRadius:20,padding:"24px 20px",width:"100%",maxWidth:440,animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:16,fontWeight:800,color:"#0f172a",marginBottom:20}}>📸 Agregar foto a la galería</div>
+            <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:16}}>
+              {galFoto&&<img src={galFoto} style={{width:"100%",height:180,objectFit:"cover",borderRadius:12,border:"1px solid #e2e8f0"}} alt=""/>}
+              <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"14px",cursor:"pointer",fontSize:13,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,textAlign:"center"}}>📷 {galFoto?"Cambiar foto":"Seleccionar foto"}<input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(f){const url=await f2b(f);setGalFoto(url);}}}/></label>
+              <input value={galDesc} onChange={e=>setGalDesc(e.target.value)} placeholder="Descripción (ej: Fade clásico con diseño)" style={inp()}/>
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>setShowGal(false)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Cancelar</button>
+              <button onClick={saveGal} disabled={!galFoto} style={{flex:2,background:galFoto?`linear-gradient(135deg,${ac},${ac}cc)`:"#e2e8f0",border:"none",color:galFoto?"#0f172a":"#94a3b8",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:galFoto?"pointer":"not-allowed"}}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL – Bloqueo */}
+      {showBloqueo&&(
+        <div style={{position:"fixed",inset:0,background:"#0000004d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,padding:20}} onClick={()=>setShowBloqueo(false)}>
+          <div style={{...card(),borderRadius:20,padding:"24px 20px",width:"100%",maxWidth:440,animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:16,fontWeight:800,color:"#0f172a",marginBottom:20}}>🚫 Agregar bloqueo de horario</div>
+            <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:16}}>
+              <div>
+                <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>TIPO DE BLOQUEO</div>
+                <div style={{display:"flex",gap:8}}>{TIPOS.map(t=>(<button key={t.k} onClick={()=>setBloqueoF(f=>({...f,tipo:t.k,motivo:t.l}))} style={{flex:1,background:bloqueoF.tipo===t.k?`${t.c}20`:"#f1f5f9",border:`1px solid ${bloqueoF.tipo===t.k?t.c:"#e2e8f0"}`,color:bloqueoF.tipo===t.k?t.c:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:10,padding:"8px 4px",borderRadius:8,cursor:"pointer"}}>{t.l}</button>))}</div>
+              </div>
+              <select value={bloqueoF.empId} onChange={e=>setBloqueoF(f=>({...f,empId:e.target.value}))} style={inp()}><option value="">Todos los empleados</option>{employees.map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}</select>
+              <input value={bloqueoF.motivo} onChange={e=>setBloqueoF(f=>({...f,motivo:e.target.value}))} placeholder="Motivo (ej: Almuerzo, Reunión…)" style={inp()}/>
+              <input type="date" value={bloqueoF.fecha} onChange={e=>setBloqueoF(f=>({...f,fecha:e.target.value}))} style={inp()} min={todayStr}/>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                <div><div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>HORA INICIO</div><select value={bloqueoF.horaInicio} onChange={e=>setBloqueoF(f=>({...f,horaInicio:e.target.value}))} style={inp()}>{HOURS.map(h=><option key={h} value={h}>{h}</option>)}</select></div>
+                <div><div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>HORA FIN</div><select value={bloqueoF.horaFin} onChange={e=>setBloqueoF(f=>({...f,horaFin:e.target.value}))} style={inp()}>{HOURS.map(h=><option key={h} value={h}>{h}</option>)}</select></div>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>setShowBloqueo(false)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Cancelar</button>
+              <button onClick={saveBloqueo} style={{flex:2,background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Guardar bloqueo</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL – Appointment */}
+      {showAppt&&(
+        <div style={{position:"fixed",inset:0,background:"#0000004d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,padding:20}} onClick={()=>setShowAppt(false)}>
+          <div style={{...card(),borderRadius:20,padding:"24px 20px",width:"100%",maxWidth:440,animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:16,fontWeight:800,color:"#0f172a",marginBottom:20}}>{editAppt?"Editar cita":"Nueva cita"}</div>
+            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
+              <input value={apptF.client} onChange={e=>setApptF(f=>({...f,client:e.target.value}))} placeholder="Nombre del cliente *" style={inp()}/>
+              <input value={apptF.phone} onChange={e=>setApptF(f=>({...f,phone:e.target.value}))} placeholder="Teléfono / WhatsApp" style={inp()}/>
+              <select value={apptF.empId} onChange={e=>setApptF(f=>({...f,empId:e.target.value}))} style={inp()}><option value="">Selecciona empleado</option>{employees.map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}</select>
+              <select value={apptF.svcId} onChange={e=>setApptF(f=>({...f,svcId:e.target.value}))} style={inp()}><option value="">Selecciona servicio</option>{services.map(s=><option key={s.id} value={s.id}>{s.emoji} {s.nombre} – ${s.precio}</option>)}</select>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                <input type="date" value={apptF.date} onChange={e=>setApptF(f=>({...f,date:e.target.value}))} style={inp()}/>
+                <select value={apptF.time} onChange={e=>setApptF(f=>({...f,time:e.target.value}))} style={inp()}>{HOURS.map(h=><option key={h} value={h}>{h}</option>)}</select>
               </div>
             </div>
             <div style={{display:"flex",gap:10}}>
