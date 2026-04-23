@@ -148,7 +148,10 @@ function RoleSelector({user, onSelect, onLogout}) {
 // ── DIRECTORY ─────────────────────────────────────────────────────────────────
 function Directory({negocios, user, isGuest, onSelect, onLogout}) {
   const [filter, setFilter] = useState("todos");
-  const shown = filter==="todos" ? negocios : negocios.filter(n=>n.tipo===filter);
+  const [search, setSearch] = useState("");
+  const shown = negocios
+    .filter(n => filter==="todos" || n.tipo===filter)
+    .filter(n => !search.trim() || n.nombre.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div style={bg}>
@@ -173,6 +176,17 @@ function Directory({negocios, user, isGuest, onSelect, onLogout}) {
           <div style={{fontSize:22,fontWeight:800,color:"#0f172a",marginBottom:2}}>Elige tu negocio</div>
           <div style={{fontSize:12,color:"#64748b"}}>{negocios.length} negocios disponibles</div>
         </div>
+        {/* Search bar */}
+        <div style={{position:"relative",marginBottom:14}}>
+          <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",fontSize:16,color:"#94a3b8"}}>🔍</span>
+          <input
+            value={search}
+            onChange={e=>setSearch(e.target.value)}
+            placeholder="Buscar negocio por nombre…"
+            style={{...inp({paddingLeft:38,borderRadius:12}),background:"#fff",boxShadow:"0 1px 4px #00000010"}}
+          />
+          {search && <button onClick={()=>setSearch("")} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"#94a3b8",cursor:"pointer",fontSize:16}}>✕</button>}
+        </div>
         <div style={{display:"flex",gap:8,marginBottom:20,overflowX:"auto",paddingBottom:4}}>
           {[{k:"todos",l:"Todos",i:"🌟"},{k:"barberia",l:"Barberías",i:"✂️"},{k:"salon",l:"Salones",i:"💇"},{k:"unas",l:"Uñas",i:"💅"},{k:"mixto",l:"Mixtos",i:"✨"}].map(f=>(
             <button key={f.k} onClick={()=>setFilter(f.k)} style={{background:filter===f.k?"#E8C547":"#fff",border:`1px solid ${filter===f.k?"#E8C547":"#e2e8f0"}`,color:filter===f.k?"#0f172a":"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:11,padding:"7px 14px",borderRadius:20,cursor:"pointer",whiteSpace:"nowrap",boxShadow:"0 1px 4px #00000010"}}>{f.i} {f.l}</button>
@@ -180,8 +194,9 @@ function Directory({negocios, user, isGuest, onSelect, onLogout}) {
         </div>
         {shown.length===0 ? (
           <div style={{textAlign:"center",padding:"48px 0",color:"#94a3b8"}}>
-            <div style={{fontSize:40,marginBottom:12}}>🏪</div>
-            <div style={{fontFamily:"'Space Mono',monospace",fontSize:11}}>AÚN NO HAY NEGOCIOS</div>
+            <div style={{fontSize:40,marginBottom:12}}>{search ? "🔍" : "🏪"}</div>
+            <div style={{fontFamily:"'Space Mono',monospace",fontSize:11}}>{search ? `SIN RESULTADOS PARA "${search.toUpperCase()}"` : "AÚN NO HAY NEGOCIOS"}</div>
+            {search && <button onClick={()=>setSearch("")} style={{marginTop:12,background:"#E8C547",border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:12,padding:"8px 20px",borderRadius:20,cursor:"pointer"}}>Ver todos</button>}
           </div>
         ) : (
           <div style={{display:"flex",flexDirection:"column",gap:14}}>
@@ -238,6 +253,8 @@ export default function App() {
   const [listaEspera,  setListaEspera]  = useState([]);
   const [bloqueos,     setBloqueos]     = useState([]);
   const [negWA,        setNegWA]        = useState("");
+  const [negDireccion, setNegDireccion] = useState("");
+  const [configSaved,  setConfigSaved]  = useState(false);
   const [fidelActiva,  setFidelActiva]  = useState(false);
   const [citasPremio,  setCitasPremio]  = useState(5);
 
@@ -307,6 +324,8 @@ export default function App() {
   const [misCitas,   setMisCitas]   = useState([]);
   const [miNombre,   setMiNombre]   = useState(localStorage.getItem("cutq_nombre")||"");
   const [showReschedule, setShowReschedule] = useState(null);
+  const [rescheduleDate,  setRescheduleDate]  = useState(todayStr);
+  const [rescheduleTime,  setRescheduleTime]  = useState("10:00");
 
   // Derived
   const biz     = BIZ_TYPES.find(t=>t.key===businessType) || BIZ_TYPES[0];
@@ -356,7 +375,7 @@ export default function App() {
     setResenas(r6.data||[]);
     setListaEspera(r7.data||[]);
     setBloqueos(r9.data||[]);
-    if(r8.data){ setFidelActiva(r8.data.fidelizacion_activa||false); setCitasPremio(r8.data.citas_x_premio||5); setNegWA(r8.data.whatsapp||""); }
+    if(r8.data){ setFidelActiva(r8.data.fidelizacion_activa||false); setCitasPremio(r8.data.citas_x_premio||5); setNegWA(r8.data.whatsapp||""); setNegDireccion(r8.data.direccion||""); }
   };
 
   // ── AUTH ACTIONS ───────────────────────────────────────────────────────────
@@ -801,38 +820,34 @@ export default function App() {
             })}
 
             {/* Reschedule modal */}
-            {showReschedule && (()=>{
-              const [rDate, setRDate] = useState(showReschedule.fecha);
-              const [rTime, setRTime] = useState("10:00");
-              return (
-                <div style={{position:"fixed",inset:0,background:"#0000004d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:20}} onClick={()=>setShowReschedule(null)}>
-                  <div style={{...card(),borderRadius:20,padding:"24px 20px",width:"100%",maxWidth:400,animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
-                    <div style={{fontSize:16,fontWeight:800,color:"#0f172a",marginBottom:20}}>🔄 Reagendar cita</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:16}}>
-                      <div>
-                        <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>NUEVA FECHA</div>
-                        <input type="date" value={rDate} onChange={e=>setRDate(e.target.value)} style={inp()} min={todayStr}/>
-                      </div>
-                      <div>
-                        <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>NUEVA HORA</div>
-                        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
-                          {HOURS.map(h=>{
-                            const taken = appointments.find(a=>a.id!==showReschedule.id&&a.fecha===rDate&&a.hora?.startsWith(h)&&(showReschedule.empleado_id?a.empleado_id===showReschedule.empleado_id:false));
-                            const blocked = isHourBlocked(rDate, h, showReschedule.empleado_id);
-                            const unav = !!taken || blocked;
-                            return <button key={h} disabled={unav} onClick={()=>setRTime(h)} style={{background:rTime===h?cc:unav?"#f1f5f9":"#fff",border:`1px solid ${rTime===h?cc:"#e2e8f0"}`,color:rTime===h?"#0f172a":unav?"#cbd5e1":"#334155",fontFamily:"'Space Mono',monospace",fontSize:10,padding:"7px 2px",borderRadius:6,cursor:unav?"not-allowed":"pointer",opacity:unav?0.4:1}}>{h}</button>;
-                          })}
-                        </div>
-                      </div>
+            {showReschedule && (
+              <div style={{position:"fixed",inset:0,background:"#0000004d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:20}} onClick={()=>setShowReschedule(null)}>
+                <div style={{...card(),borderRadius:20,padding:"24px 20px",width:"100%",maxWidth:400,animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
+                  <div style={{fontSize:16,fontWeight:800,color:"#0f172a",marginBottom:20}}>🔄 Reagendar cita</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:16}}>
+                    <div>
+                      <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>NUEVA FECHA</div>
+                      <input type="date" value={rescheduleDate} onChange={e=>setRescheduleDate(e.target.value)} style={inp()} min={todayStr}/>
                     </div>
-                    <div style={{display:"flex",gap:10}}>
-                      <button onClick={()=>setShowReschedule(null)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Cancelar</button>
-                      <button onClick={()=>reagendarCita(showReschedule.id,rDate,rTime)} style={{flex:2,background:`linear-gradient(135deg,${cc},${cc}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Confirmar reagenda</button>
+                    <div>
+                      <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>NUEVA HORA</div>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
+                        {HOURS.map(h=>{
+                          const taken = appointments.find(a=>a.id!==showReschedule.id&&a.fecha===rescheduleDate&&a.hora?.startsWith(h)&&(showReschedule.empleado_id?a.empleado_id===showReschedule.empleado_id:false));
+                          const blocked = isHourBlocked(rescheduleDate, h, showReschedule.empleado_id);
+                          const unav = !!taken || blocked;
+                          return <button key={h} disabled={unav} onClick={()=>setRescheduleTime(h)} style={{background:rescheduleTime===h?cc:unav?"#f1f5f9":"#fff",border:`1px solid ${rescheduleTime===h?cc:"#e2e8f0"}`,color:rescheduleTime===h?"#0f172a":unav?"#cbd5e1":"#334155",fontFamily:"'Space Mono',monospace",fontSize:10,padding:"7px 2px",borderRadius:6,cursor:unav?"not-allowed":"pointer",opacity:unav?0.4:1}}>{h}</button>;
+                        })}
+                      </div>
                     </div>
                   </div>
+                  <div style={{display:"flex",gap:10}}>
+                    <button onClick={()=>setShowReschedule(null)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Cancelar</button>
+                    <button onClick={()=>reagendarCita(showReschedule.id,rescheduleDate,rescheduleTime)} style={{flex:2,background:`linear-gradient(135deg,${cc},${cc}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Confirmar reagenda</button>
+                  </div>
                 </div>
-              );
-            })()}
+              </div>
+            )}
           </div>
         )}
           <div style={{padding:"20px 20px 80px"}}>
@@ -1426,8 +1441,35 @@ export default function App() {
             <div style={{...card(),padding:16}}>
               <div style={{fontSize:12,fontWeight:700,color:"#334155",marginBottom:10}}>📍 Dirección y contacto</div>
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                <input placeholder="Dirección del negocio" style={inp()} onChange={async e=>{ await supabase.from("negocios").update({direccion:e.target.value}).eq("id",negocioId); }}/>
-                <input placeholder="WhatsApp (con código de país: 18091234567)" style={inp()} onChange={async e=>{ await supabase.from("negocios").update({whatsapp:e.target.value}).eq("id",negocioId); }}/>
+                <div>
+                  <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:5}}>DIRECCIÓN</div>
+                  <input
+                    value={negDireccion}
+                    onChange={e=>{setNegDireccion(e.target.value);setConfigSaved(false);}}
+                    placeholder="Ej: Calle Principal #123, Santo Domingo"
+                    style={inp()}
+                  />
+                </div>
+                <div>
+                  <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:5}}>WHATSAPP DEL NEGOCIO</div>
+                  <input
+                    value={negWA}
+                    onChange={e=>{setNegWA(e.target.value);setConfigSaved(false);}}
+                    placeholder="Ej: 18091234567 (con código de país)"
+                    style={inp()}
+                  />
+                  <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>Los clientes recibirán notificación automática aquí cuando reserven</div>
+                </div>
+                <button
+                  onClick={async()=>{
+                    await supabase.from("negocios").update({direccion:negDireccion,whatsapp:negWA}).eq("id",negocioId);
+                    setConfigSaved(true);
+                    setTimeout(()=>setConfigSaved(false),3000);
+                  }}
+                  style={{background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:13,padding:"12px",borderRadius:10,cursor:"pointer",marginTop:4}}
+                >
+                  {configSaved ? "✅ ¡Guardado!" : "💾 Guardar cambios"}
+                </button>
               </div>
             </div>
             <div style={{...card(),padding:16}}>
