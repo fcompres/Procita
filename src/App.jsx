@@ -71,6 +71,8 @@ const waMsgDueno = (phone, neg, cliente, svc, fecha, hora) => `https://wa.me/${p
 const addToCalendar = (neg, svc, fecha, hora) => { const dt=fecha.replace(/-/g,""); const h=hora.replace(":",""); const end=`${dt}T${h}00`; const start=`${dt}T${h}00`; return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Cita en ${neg}`)}&details=${encodeURIComponent(`Servicio: ${svc}`)}&dates=${start}/${end}`; };
 const bzColor = (tipo) => BIZ_TYPES.find(t=>t.key===tipo)?.color || "#E8C547";
 const bzIcon  = (tipo) => BIZ_TYPES.find(t=>t.key===tipo)?.icon  || "✂️";
+const APP_URL = typeof window !== "undefined" ? window.location.origin : "https://procita.vercel.app";
+const qrUrl   = (url) => `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`;
 
 // ── LOADER ────────────────────────────────────────────────────────────────────
 function Loader({text="Cargando..."}) {
@@ -173,7 +175,7 @@ function RoleSelector({user, onSelect, onLogout}) {
 }
 
 // ── DIRECTORY ─────────────────────────────────────────────────────────────────
-function Directory({negocios, user, isGuest, onSelect, onLogout}) {
+function Directory({negocios, user, isGuest, onSelect, onLogout, onBackToDashboard}) {
   const [filter, setFilter] = useState("todos");
   const [search, setSearch] = useState("");
   const shown = negocios
@@ -195,6 +197,7 @@ function Directory({negocios, user, isGuest, onSelect, onLogout}) {
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           {isGuest && <div style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:20,padding:"4px 10px",fontSize:9,color:"#92400E",fontFamily:"'Space Mono',monospace"}}>INVITADO</div>}
           {!isGuest && user?.user_metadata?.picture && <img src={user.user_metadata.picture} style={{width:30,height:30,borderRadius:"50%",border:"2px solid #e2e8f0"}} alt=""/>}
+          {onBackToDashboard && <button onClick={onBackToDashboard} style={{background:"#FEF3C7",border:"1px solid #FDE68A",color:"#92400E",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>🏪 Mi panel</button>}
           <button onClick={onLogout} style={{background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>Salir</button>
         </div>
       </div>
@@ -624,7 +627,7 @@ export default function App() {
   if(authLoading)    return <Loader text="INICIANDO PROCITA..."/>;
   if(screen==="auth") return <AuthScreen onGuest={handleGuestMode}/>;
   if(screen==="role") return <RoleSelector user={user} onSelect={handleRoleSelect} onLogout={handleLogout}/>;
-  if(screen==="directory") return <Directory negocios={negocios} user={user} isGuest={isGuest} onLogout={handleLogout} onSelect={neg=>{ setSelectedNeg(neg); setBusinessType(neg.tipo); setBusinessName(neg.nombre); setNegocioFoto(neg.foto_url||null); loadData(neg.id).then(()=>{ setNegocioId(neg.id); setClientView("home"); setScreen("client"); }); }}/>;
+  if(screen==="directory") return <Directory negocios={negocios} user={user} isGuest={isGuest} onLogout={handleLogout} onBackToDashboard={negocioId?()=>setScreen("dashboard"):null} onSelect={neg=>{ setSelectedNeg(neg); setBusinessType(neg.tipo); setBusinessName(neg.nombre); setNegocioFoto(neg.foto_url||null); loadData(neg.id).then(()=>{ setNegocioId(neg.id); setClientView("home"); setScreen("client"); }); }}/>;
 
   // ── SETUP ──────────────────────────────────────────────────────────────────
   if(screen==="setup") {
@@ -1060,6 +1063,7 @@ export default function App() {
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
             {user?.user_metadata?.picture && <img src={user.user_metadata.picture} style={{width:28,height:28,borderRadius:"50%",border:"2px solid #e2e8f0"}} alt=""/>}
             <button onClick={handleLogout} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>Salir</button>
+            <button onClick={async()=>{ await loadNegocios(); setScreen("directory"); }} style={{background:"#EFF6FF",border:"1px solid #BFDBFE",color:"#1D4ED8",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>👁 Vista cliente</button>
           </div>
         </div>
         <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:2}}>
