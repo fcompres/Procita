@@ -370,12 +370,27 @@ export default function App() {
     // Check push notification permission
     if("Notification" in window && Notification.permission === "granted") setPushEnabled(true);
 
-    supabase.auth.getSession().then(({data:{session}})=>{
-      if(session?.user){ setUser(session.user); setScreen("role"); }
+    supabase.auth.getSession().then(async ({data:{session}})=>{
+      if(session?.user){
+        setUser(session.user);
+        const saved = localStorage.getItem("procita_screen");
+        const savedNegId = localStorage.getItem("procita_negid");
+        const savedNegName = localStorage.getItem("procita_negname");
+        const savedNegType = localStorage.getItem("procita_negtype");
+        if(saved==="dashboard" && savedNegId){
+          setNegocioId(savedNegId);
+          setBusinessName(savedNegName||"");
+          setBusinessType(savedNegType||null);
+          await loadData(savedNegId);
+          setScreen("dashboard");
+        } else {
+          setScreen("role");
+        }
+      }
       setAuthLoading(false);
     });
     const {data:{subscription}} = supabase.auth.onAuthStateChange((_,session)=>{
-      if(session?.user){ setUser(session.user); setAuthLoading(false); setScreen("role"); }
+      if(session?.user){ setUser(session.user); setAuthLoading(false); }
     });
     return ()=>subscription.unsubscribe();
   },[]);
@@ -416,6 +431,10 @@ export default function App() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    localStorage.removeItem("procita_screen");
+    localStorage.removeItem("procita_negid");
+    localStorage.removeItem("procita_negname");
+    localStorage.removeItem("procita_negtype");
     setUser(null); setIsGuest(false); setScreen("auth");
     setNegocios([]); setSelectedNeg(null); setNegocioId(null);
     setEmployees([]); setServices([]); setAppointments([]); setProducts([]);
@@ -432,6 +451,11 @@ export default function App() {
         setNegocioId(data.id); setBusinessName(data.nombre); setBusinessType(data.tipo);
         setNegocioFoto(data.foto_url||null);
         await loadData(data.id);
+        // Save session so user returns to dashboard on reload
+        localStorage.setItem("procita_screen","dashboard");
+        localStorage.setItem("procita_negid",data.id);
+        localStorage.setItem("procita_negname",data.nombre);
+        localStorage.setItem("procita_negtype",data.tipo);
         setScreen("dashboard");
       } else {
         setScreen("setup");
@@ -1833,27 +1857,6 @@ export default function App() {
             {weekDates.every(d=>appointments.filter(a=>a.fecha===d).length===0)&&(
               <div style={{textAlign:"center",padding:"32px 0",color:"#94a3b8",fontFamily:"'Space Mono',monospace",fontSize:12}}>SIN CITAS ESTA SEMANA</div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* MODAL – Employee */}
-      {showEmp&&(
-        <div style={{position:"fixed",inset:0,background:"#0000004d",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:100}} onClick={()=>setShowEmp(false)}>
-          <div style={{...card(),borderRadius:"20px 20px 0 0",padding:"24px 20px 36px",width:"100%",maxWidth:480,animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
-            <div style={{width:36,height:4,background:"#e2e8f0",borderRadius:2,margin:"0 auto 20px"}}/>
-            <div style={{fontSize:16,fontWeight:800,color:"#0f172a",marginBottom:20}}>Nuevo empleado — {sw} {employees.length+1}</div>
-            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
-              <input value={empName} onChange={e=>setEmpName(e.target.value)} placeholder="Nombre completo" style={inp()}/>
-              <select value={empRole} onChange={e=>setEmpRole(e.target.value)} style={inp()}>
-                <option value="">Selecciona un rol</option>{roles.map(r=><option key={r} value={r}>{r}</option>)}
-              </select>
-              <input value={empSpec} onChange={e=>setEmpSpec(e.target.value)} placeholder="Especialidad" style={inp()}/>
-            </div>
-            <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>setShowEmp(false)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Cancelar</button>
-              <button onClick={addEmp} style={{flex:2,background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Agregar</button>
-            </div>
           </div>
         </div>
       )}
