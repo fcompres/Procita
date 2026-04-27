@@ -39,6 +39,33 @@ const card = (x={}) => ({ background:"#fff", borderRadius:16, boxShadow:"0 2px 1
 const bg   = { minHeight:"100vh", background:"#f1f5f9", color:"#1e293b", fontFamily:"'Syne',sans-serif" };
 const CSS  = `@keyframes spin{to{transform:rotate(360deg)}}@keyframes slideUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}`;
 const f2b  = (file) => new Promise((res,rej)=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsDataURL(file); });
+
+// ── PUSH NOTIFICATIONS ────────────────────────────────────────────────────────
+const VAPID_PUBLIC = "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDkBNj3R5-V08IUh13TMtPBuQMwOoOFcGxYLNtlBn8"; // demo key
+const urlBase64ToUint8Array = (b64) => {
+  const pad = "=".repeat((4-b64.length%4)%4);
+  const raw = atob((b64+pad).replace(/-/g,"+").replace(/_/g,"/"));
+  return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+};
+const subscribePush = async () => {
+  try {
+    if(!("Notification" in window)) return null;
+    const perm = await Notification.requestPermission();
+    if(perm !== "granted") return null;
+    if(!("serviceWorker" in navigator)) return null;
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC)
+    });
+    return sub;
+  } catch(e) { console.log("Push:", e); return null; }
+};
+const showLocalNotif = (title, body) => {
+  if(Notification.permission === "granted") {
+    new Notification(title, { body, icon: "/icon-192.png" });
+  }
+};
 const waMsg = (phone, neg, fecha, hora) => `https://wa.me/${phone.replace(/\D/g,"")}?text=${encodeURIComponent(`Hola, tu cita en ${neg} está confirmada para el ${fecha} a las ${hora}.`)}`;
 const waMsgDueno = (phone, neg, cliente, svc, fecha, hora) => `https://wa.me/${phone.replace(/\D/g,"")}?text=${encodeURIComponent(`🔔 Nueva cita en ${neg}!\n👤 Cliente: ${cliente}\n✂️ Servicio: ${svc}\n📅 Fecha: ${fecha}\n🕐 Hora: ${hora}`)}`;
 const addToCalendar = (neg, svc, fecha, hora) => { const dt=fecha.replace(/-/g,""); const h=hora.replace(":",""); const end=`${dt}T${h}00`; const start=`${dt}T${h}00`; return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Cita en ${neg}`)}&details=${encodeURIComponent(`Servicio: ${svc}`)}&dates=${start}/${end}`; };
@@ -269,6 +296,8 @@ export default function App() {
   const [newAlert,     setNewAlert]     = useState(0);
   const [saving,       setSaving]       = useState(false);
   const [showQR,       setShowQR]       = useState(false);
+  const [pushEnabled,  setPushEnabled]  = useState(false);
+  const [showPushInfo, setShowPushInfo] = useState(false);
   const [showPrint,    setShowPrint]    = useState(false);
 
   // Modals – employee
@@ -276,6 +305,7 @@ export default function App() {
   const [empName,  setEmpName]  = useState("");
   const [empRole,  setEmpRole]  = useState("");
   const [empSpec,  setEmpSpec]  = useState("");
+  const [empPhone, setEmpPhone] = useState("");
   const [showEditEmp,  setShowEditEmp]  = useState(null);
   const [editEmpFoto,  setEditEmpFoto]  = useState("");
   const [editEmpHorario, setEditEmpHorario] = useState(DEFAULT_HORARIO);
@@ -337,6 +367,9 @@ export default function App() {
 
   // ── AUTH LISTENER ──────────────────────────────────────────────────────────
   useEffect(()=>{
+    // Check push notification permission
+    if("Notification" in window && Notification.permission === "granted") setPushEnabled(true);
+
     supabase.auth.getSession().then(({data:{session}})=>{
       if(session?.user){ setUser(session.user); setScreen("role"); }
       setAuthLoading(false);
@@ -418,9 +451,9 @@ export default function App() {
   const addEmp = async () => {
     if(!empName.trim()) return;
     const ini = empName.trim().split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
-    const {data} = await supabase.from("empleados").insert({negocio_id:negocioId,nombre:empName.trim(),rol:empRole||roles[0]||"Empleado",especialidad:empSpec||"General",silla:employees.length+1,status:"disponible",avatar:ini,color:COLORS[Math.floor(Math.random()*COLORS.length)]}).select().single();
+    const {data} = await supabase.from("empleados").insert({negocio_id:negocioId,nombre:empName.trim(),rol:empRole||roles[0]||"Empleado",especialidad:empSpec||"General",telefono:empPhone||null,silla:employees.length+1,status:"disponible",avatar:ini,color:COLORS[Math.floor(Math.random()*COLORS.length)]}).select().single();
     if(data) setEmployees(p=>[...p,data]);
-    setEmpName(""); setEmpRole(""); setEmpSpec(""); setShowEmp(false);
+    setEmpName(""); setEmpRole(""); setEmpSpec(""); setEmpPhone(""); setShowEmp(false);
   };
   const changeStatus = async (id,status) => { await supabase.from("empleados").update({status}).eq("id",id); setEmployees(p=>p.map(e=>e.id===id?{...e,status}:e)); setSelEmp(null); };
   const removeEmp    = async (id)         => { await supabase.from("empleados").delete().eq("id",id); setEmployees(p=>p.filter(e=>e.id!==id)); setSelEmp(null); };
@@ -464,7 +497,7 @@ export default function App() {
     if(!apptF.client.trim()) return;
     const obj = {negocio_id:negocioId,cliente_nombre:apptF.client,cliente_telefono:apptF.phone,empleado_id:apptF.empId||null,servicio_id:apptF.svcId||null,fecha:apptF.date,hora:apptF.time,status:"pendiente"};
     if(editAppt){ await supabase.from("citas").update(obj).eq("id",editAppt.id); setAppointments(p=>p.map(a=>a.id===editAppt.id?{...a,...obj}:a)); }
-    else { const {data}=await supabase.from("citas").insert(obj).select().single(); if(data){ setAppointments(p=>[...p,data]); setNewAlert(n=>n+1); } }
+    else { const {data}=await supabase.from("citas").insert(obj).select().single(); if(data){ setAppointments(p=>[...p,data]); setNewAlert(n=>n+1); showLocalNotif("🔔 Nueva cita", `${obj.cliente_nombre} · ${obj.fecha} ${obj.hora}`); } }
     setShowAppt(false);
   };
   const deleteAppt       = async (id)     => { await supabase.from("citas").delete().eq("id",id); setAppointments(p=>p.filter(a=>a.id!==id)); };
@@ -1054,6 +1087,7 @@ export default function App() {
                     <div style={{fontSize:13,fontWeight:700,color:"#0f172a",marginBottom:2}}>{emp.nombre}</div>
                     <div style={{fontSize:9,color:ac,fontFamily:"'Space Mono',monospace",marginBottom:2}}>{emp.rol}</div>
                     <div style={{fontSize:9,color:"#94a3b8",fontFamily:"'Space Mono',monospace",marginBottom:8}}>{emp.especialidad}</div>
+                    {emp.telefono&&<a href={`tel:${emp.telefono}`} onClick={e=>e.stopPropagation()} style={{display:"block",fontSize:9,color:"#3B82F6",fontFamily:"'Space Mono',monospace",marginBottom:6,textDecoration:"none"}}>📱 {emp.telefono}</a>}
                     <div style={{display:"inline-block",background:`${cfg.dot}12`,border:`1px solid ${cfg.dot}25`,borderRadius:20,padding:"3px 10px",fontSize:9,fontWeight:600,color:cfg.dot}}>{cfg.label}</div>
                   </div>
                   {sel && (
@@ -1087,7 +1121,12 @@ export default function App() {
               <option value="todos">Todos</option>
               {employees.map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}
             </select>
-            <button onClick={openAddAppt} style={{background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 14px",borderRadius:10,cursor:"pointer",marginLeft:"auto"}}>+ Nueva cita</button>
+            <div style={{display:"flex",gap:6,marginLeft:"auto",flexWrap:"wrap"}}>
+              <button onClick={()=>setShowPrint(true)} style={{background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#475569",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 10px",borderRadius:10,cursor:"pointer"}}>🖨️</button>
+              <button onClick={()=>setShowQR(true)} style={{background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#475569",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 10px",borderRadius:10,cursor:"pointer"}}>📲</button>
+              <button onClick={async()=>{ const sub=await subscribePush(); if(sub){ setPushEnabled(true); alert("✅ Notificaciones activadas"); } else if(Notification.permission==="denied"){ alert("❌ Bloqueaste las notificaciones. Actívalas en la configuración del navegador."); } }} style={{background:pushEnabled?"#D1FAE5":"#f1f5f9",border:`1px solid ${pushEnabled?"#6EE7B7":"#e2e8f0"}`,color:pushEnabled?"#065F46":"#475569",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 10px",borderRadius:10,cursor:"pointer"}} title={pushEnabled?"Notificaciones activas":"Activar notificaciones push"}>{pushEnabled?"🔔":"🔕"}</button>
+              <button onClick={openAddAppt} style={{background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 14px",borderRadius:10,cursor:"pointer"}}>+ Nueva cita</button>
+            </div>
           </div>
 
           {/* Day view */}
@@ -1496,6 +1535,7 @@ export default function App() {
                 {roles.map(r=><option key={r} value={r}>{r}</option>)}
               </select>
               <input value={empSpec} onChange={e=>setEmpSpec(e.target.value)} placeholder="Especialidad" style={inp()}/>
+              <input value={empPhone} onChange={e=>setEmpPhone(e.target.value)} placeholder="📱 Teléfono personal (opcional)" type="tel" style={inp()}/>
             </div>
             <div style={{display:"flex",gap:10}}>
               <button onClick={()=>setShowEmp(false)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Cancelar</button>
