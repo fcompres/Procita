@@ -37,7 +37,10 @@ const weekDates = Array.from({length:7},(_,i)=>{ const d=new Date(today); d.setD
 const inp  = (x={}) => ({ background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:10, padding:"11px 14px", color:"#1e293b", fontFamily:"'Syne',sans-serif", fontSize:13, outline:"none", width:"100%", boxSizing:"border-box", ...x });
 const card = (x={}) => ({ background:"#fff", borderRadius:16, boxShadow:"0 2px 12px #0000000d", border:"1px solid #e8edf5", ...x });
 const bg   = { minHeight:"100vh", background:"#f1f5f9", color:"#1e293b", fontFamily:"'Syne',sans-serif" };
-const CSS  = `@keyframes spin{to{transform:rotate(360deg)}}@keyframes slideUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}`;
+const CSS  = `@keyframes spin{to{transform:rotate(360deg)}}@keyframes slideUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}.dark{background:#0f172a!important;color:#f1f5f9!important}`;
+const inpDark  = (dark,x={}) => ({ background:dark?"#1e293b":"#f8fafc", border:`1px solid ${dark?"#334155":"#e2e8f0"}`, borderRadius:10, padding:"11px 14px", color:dark?"#f1f5f9":"#1e293b", fontFamily:"'Syne',sans-serif", fontSize:13, outline:"none", width:"100%", boxSizing:"border-box", ...x });
+const cardDark = (dark,x={}) => ({ background:dark?"#1e293b":"#fff", borderRadius:16, boxShadow:dark?"0 2px 12px #00000040":"0 2px 12px #0000000d", border:`1px solid ${dark?"#334155":"#e8edf5"}`, ...x });
+const bgDark   = (dark) => ({ minHeight:"100vh", background:dark?"#0f172a":"#f1f5f9", color:dark?"#f1f5f9":"#1e293b", fontFamily:"'Syne',sans-serif" });
 const f2b  = (file) => new Promise((res,rej)=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsDataURL(file); });
 
 // ── PUSH NOTIFICATIONS ────────────────────────────────────────────────────────
@@ -72,6 +75,14 @@ const addToCalendar = (neg, svc, fecha, hora) => { const dt=fecha.replace(/-/g,"
 const bzColor = (tipo) => BIZ_TYPES.find(t=>t.key===tipo)?.color || "#E8C547";
 const bzIcon  = (tipo) => BIZ_TYPES.find(t=>t.key===tipo)?.icon  || "✂️";
 const APP_URL = typeof window !== "undefined" ? window.location.origin : "https://procita.vercel.app";
+
+const T = {
+  es:{reservar:"Reservar cita",miscitas:"Ver mis citas",servicios:"Servicios disponibles",sinservicios:"AÚN SIN SERVICIOS",galeria:"Galería de trabajos",resenas:"Reseñas",dejarResena:"+ Dejar reseña",listaEspera:"¿No hay hora disponible?",unirme:"Unirme a la lista de espera",confirmar:"Confirmar cita ✓",nueva:"Nueva cita",masNegocios:"Más negocios",elegir:"Elige tu negocio",buscar:"Buscar negocio por nombre…",todos:"Todos",reservarBtn:"Reservar →",cualquier:"Cualquier disponible"},
+  en:{reservar:"Book appointment",miscitas:"My appointments",servicios:"Available services",sinservicios:"NO SERVICES YET",galeria:"Work gallery",resenas:"Reviews",dejarResena:"+ Leave review",listaEspera:"No availability?",unirme:"Join waitlist",confirmar:"Confirm ✓",nueva:"New appointment",masNegocios:"More businesses",elegir:"Choose a business",buscar:"Search business by name…",todos:"All",reservarBtn:"Book →",cualquier:"Any available"},
+};
+
+const DK = (dark) => dark ? {bg:"#0f172a",card:"#1e293b",border:"#334155",text:"#f1f5f9",sub:"#94a3b8",input:{background:"#1e293b",border:"1px solid #334155",color:"#f1f5f9"}} : {bg:"#f1f5f9",card:"#fff",border:"#e8edf5",text:"#1e293b",sub:"#64748b",input:{background:"#f8fafc",border:"1px solid #e2e8f0",color:"#1e293b"}};
+
 const qrUrl   = (url) => `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`;
 
 // ── LOADER ────────────────────────────────────────────────────────────────────
@@ -175,9 +186,10 @@ function RoleSelector({user, onSelect, onLogout}) {
 }
 
 // ── DIRECTORY ─────────────────────────────────────────────────────────────────
-function Directory({negocios, user, isGuest, onSelect, onLogout, onBackToDashboard}) {
+function Directory({negocios, user, isGuest, idioma="es", onSelect, onLogout, onBackToDashboard}) {
   const [filter, setFilter] = useState("todos");
   const [search, setSearch] = useState("");
+  const t = T[idioma]||T.es;
   const shown = negocios
     .filter(n => filter==="todos" || n.tipo===filter)
     .filter(n => !search.trim() || n.nombre.toLowerCase().includes(search.toLowerCase()));
@@ -203,7 +215,7 @@ function Directory({negocios, user, isGuest, onSelect, onLogout, onBackToDashboa
       </div>
       <div style={{padding:"20px"}}>
         <div style={{marginBottom:16}}>
-          <div style={{fontSize:22,fontWeight:800,color:"#0f172a",marginBottom:2}}>Elige tu negocio</div>
+          <div style={{fontSize:22,fontWeight:800,color:"#0f172a",marginBottom:2}}>{t.elegir}</div>
           <div style={{fontSize:12,color:"#64748b"}}>{negocios.length} negocios disponibles</div>
         </div>
         {/* Search bar */}
@@ -212,7 +224,7 @@ function Directory({negocios, user, isGuest, onSelect, onLogout, onBackToDashboa
           <input
             value={search}
             onChange={e=>setSearch(e.target.value)}
-            placeholder="Buscar negocio por nombre…"
+            placeholder={t.buscar}
             style={{...inp({paddingLeft:38,borderRadius:12}),background:"#fff",boxShadow:"0 1px 4px #00000010"}}
           />
           {search && <button onClick={()=>setSearch("")} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"#94a3b8",cursor:"pointer",fontSize:16}}>✕</button>}
@@ -247,7 +259,7 @@ function Directory({negocios, user, isGuest, onSelect, onLogout, onBackToDashboa
                   </div>
                   <div style={{padding:"11px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div style={{fontSize:11,color:"#64748b"}}>Ver servicios y reservar</div>
-                    <div style={{background:c,borderRadius:20,padding:"5px 14px",fontSize:10,color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700}}>Reservar →</div>
+                    <div style={{background:c,borderRadius:20,padding:"5px 14px",fontSize:10,color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700}}>{t.reservarBtn}</div>
                   </div>
                 </div>
               );
@@ -285,6 +297,10 @@ export default function App() {
   const [negWA,        setNegWA]        = useState("");
   const [negDireccion, setNegDireccion] = useState("");
   const [configSaved,  setConfigSaved]  = useState(false);
+  const [darkMode,     setDarkMode]     = useState(()=>localStorage.getItem("procita_dark")==="1");
+  const [negHorario,   setNegHorario]   = useState(null);
+  const [maxCitasHora, setMaxCitasHora] = useState(1);
+  const [idioma,       setIdioma]       = useState(()=>localStorage.getItem("procita_lang")||"es");
   const [fidelActiva,  setFidelActiva]  = useState(false);
   const [citasPremio,  setCitasPremio]  = useState(5);
 
@@ -426,7 +442,7 @@ export default function App() {
     setResenas(r6.data||[]);
     setListaEspera(r7.data||[]);
     setBloqueos(r9.data||[]);
-    if(r8.data){ setFidelActiva(r8.data.fidelizacion_activa||false); setCitasPremio(r8.data.citas_x_premio||5); setNegWA(r8.data.whatsapp||""); setNegDireccion(r8.data.direccion||""); }
+    if(r8.data){ setFidelActiva(r8.data.fidelizacion_activa||false); setCitasPremio(r8.data.citas_x_premio||5); setNegWA(r8.data.whatsapp||""); setNegDireccion(r8.data.direccion||""); setNegHorario(r8.data.horario_negocio||null); setMaxCitasHora(r8.data.max_citas_por_hora||1); }
   };
 
   // ── AUTH ACTIONS ───────────────────────────────────────────────────────────
@@ -627,7 +643,7 @@ export default function App() {
   if(authLoading)    return <Loader text="INICIANDO PROCITA..."/>;
   if(screen==="auth") return <AuthScreen onGuest={handleGuestMode}/>;
   if(screen==="role") return <RoleSelector user={user} onSelect={handleRoleSelect} onLogout={handleLogout}/>;
-  if(screen==="directory") return <Directory negocios={negocios} user={user} isGuest={isGuest} onLogout={handleLogout} onBackToDashboard={negocioId?()=>setScreen("dashboard"):null} onSelect={neg=>{ setSelectedNeg(neg); setBusinessType(neg.tipo); setBusinessName(neg.nombre); setNegocioFoto(neg.foto_url||null); loadData(neg.id).then(()=>{ setNegocioId(neg.id); setClientView("home"); setScreen("client"); }); }}/>;
+  if(screen==="directory") return <Directory negocios={negocios} user={user} isGuest={isGuest} idioma={idioma} onLogout={handleLogout} onBackToDashboard={negocioId?()=>setScreen("dashboard"):null} onSelect={neg=>{ setSelectedNeg(neg); setBusinessType(neg.tipo); setBusinessName(neg.nombre); setNegocioFoto(neg.foto_url||null); loadData(neg.id).then(()=>{ setNegocioId(neg.id); setClientView("home"); setScreen("client"); }); }}/>;
 
   // ── SETUP ──────────────────────────────────────────────────────────────────
   if(screen==="setup") {
@@ -712,8 +728,8 @@ export default function App() {
               📅 Agregar a Google Calendar
             </a>
             <div style={{display:"flex",gap:10,maxWidth:340,margin:"10px auto 0"}}>
-              <button onClick={()=>{setClientView("home");setStep(1);setBkSvc(null);setBkEmp(null);setBkTime(null);setBkName("");setBkPhone("");}} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"12px",borderRadius:12,cursor:"pointer"}}>Nueva cita</button>
-              <button onClick={()=>setScreen("directory")} style={{flex:1,background:`linear-gradient(135deg,${cc},${cc}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"12px",borderRadius:12,cursor:"pointer"}}>Más negocios</button>
+              <button onClick={()=>{setClientView("home");setStep(1);setBkSvc(null);setBkEmp(null);setBkTime(null);setBkName("");setBkPhone("");}} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"12px",borderRadius:12,cursor:"pointer"}}>{T[idioma]?.nueva||"Nueva cita"}</button>
+              <button onClick={()=>setScreen("directory")} style={{flex:1,background:`linear-gradient(135deg,${cc},${cc}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"12px",borderRadius:12,cursor:"pointer"}}>{T[idioma]?.masNegocios||"Más negocios"}</button>
             </div>
           </div>
         )}
@@ -765,7 +781,7 @@ export default function App() {
                 <div onClick={()=>{setBkEmp(null);setStep(3);}} style={{...card(),padding:"14px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:14,marginBottom:10}}>
                   <div style={{width:44,height:44,borderRadius:"50%",background:"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🎲</div>
                   <div>
-                    <div style={{fontSize:14,fontWeight:700,color:"#0f172a"}}>Cualquier disponible</div>
+                    <div style={{fontSize:14,fontWeight:700,color:"#0f172a"}}>{T[idioma]?.cualquier||"Cualquier disponible"}</div>
                     <div style={{fontSize:11,color:"#64748b"}}>Asignación automática</div>
                   </div>
                 </div>
@@ -795,7 +811,8 @@ export default function App() {
                   <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>HORA DISPONIBLE</div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
                     {HOURS.map(h=>{
-                      const taken = appointments.find(a=>a.fecha===bkDate&&a.hora?.startsWith(h)&&(bkEmp?a.empleado_id===bkEmp?.id:false));
+                      const takenCount = appointments.filter(a=>a.fecha===bkDate&&a.hora?.startsWith(h)).length;
+                      const taken = bkEmp ? appointments.find(a=>a.fecha===bkDate&&a.hora?.startsWith(h)&&a.empleado_id===bkEmp?.id) : takenCount >= maxCitasHora;
                       const blocked = isHourBlocked(bkDate, h, bkEmp?.id||null);
                       const unavailable = !!taken || blocked;
                       return (
@@ -832,7 +849,7 @@ export default function App() {
                 </div>
                 <div style={{display:"flex",gap:10}}>
                   <button onClick={()=>setStep(3)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>← Volver</button>
-                  <button disabled={!bkName.trim()} onClick={confirmBooking} style={{flex:2,background:bkName.trim()?`linear-gradient(135deg,${cc},${cc}cc)`:"#e2e8f0",border:"none",color:bkName.trim()?"#0f172a":"#94a3b8",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:bkName.trim()?"pointer":"not-allowed"}}>Confirmar cita ✓</button>
+                  <button disabled={!bkName.trim()} onClick={confirmBooking} style={{flex:2,background:bkName.trim()?`linear-gradient(135deg,${cc},${cc}cc)`:"#e2e8f0",border:"none",color:bkName.trim()?"#0f172a":"#94a3b8",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:bkName.trim()?"pointer":"not-allowed"}}>{T[idioma]?.confirmar||"Confirmar cita ✓"}</button>
                 </div>
               </div>
             )}
@@ -911,16 +928,40 @@ export default function App() {
           </div>
         )}
           <div style={{padding:"20px 20px 80px"}}>
-            <button onClick={()=>setClientView("book")} style={{width:"100%",background:`linear-gradient(135deg,${cc},${cc}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:16,padding:16,borderRadius:14,cursor:"pointer",marginBottom:12,boxShadow:`0 4px 20px ${cc}40`}}>📅 Reservar cita</button>
+            {/* Horario del negocio */}
+            {negHorario && (()=>{
+              const dias = ["lunes","martes","miercoles","jueves","viernes","sabado","domingo"];
+              const labels = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
+              const hoy = new Date().getDay(); // 0=Dom..6=Sáb
+              const diaKey = ["domingo","lunes","martes","miercoles","jueves","viernes","sabado"][hoy];
+              const hHoy = negHorario[diaKey];
+              return(
+                <div style={{...card(),padding:"12px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:12}}>
+                  <div style={{fontSize:20}}>🕐</div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:11,fontWeight:700,color:hHoy?"#10B981":"#EF4444"}}>{hHoy?`Abierto hoy: ${hHoy.abre} – ${hHoy.cierra}`:"Cerrado hoy"}</div>
+                    <div style={{display:"flex",gap:6,marginTop:6,flexWrap:"wrap"}}>
+                      {dias.map((d,i)=>{
+                        const h=negHorario[d];
+                        const isToday=d===diaKey;
+                        return<div key={d} style={{fontSize:9,padding:"2px 7px",borderRadius:20,background:isToday?`${cc}20`:h?"#f1f5f9":"#FEF2F2",color:isToday?cc:h?"#64748b":"#EF4444",fontFamily:"'Space Mono',monospace",border:`1px solid ${isToday?cc:h?"#e2e8f0":"#FECACA"}`}}>{labels[i]}</div>;
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <button onClick={()=>setClientView("book")} style={{width:"100%",background:`linear-gradient(135deg,${cc},${cc}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:16,padding:16,borderRadius:14,cursor:"pointer",marginBottom:12,boxShadow:`0 4px 20px ${cc}40`}}>📅 {T[idioma]?.reservar||"Reservar cita"}</button>
 
             {/* Mis citas */}
             {miNombre && (
-              <button onClick={async()=>{ await loadMisCitas(); setClientView("miscitas"); }} style={{width:"100%",background:"#EFF6FF",border:"1px solid #BFDBFE",color:"#1D4ED8",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:14,padding:14,borderRadius:14,cursor:"pointer",marginBottom:20}}>📋 Ver mis citas</button>
+              <button onClick={async()=>{ await loadMisCitas(); setClientView("miscitas"); }} style={{width:"100%",background:"#EFF6FF",border:"1px solid #BFDBFE",color:"#1D4ED8",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:14,padding:14,borderRadius:14,cursor:"pointer",marginBottom:20}}>📋 {T[idioma]?.miscitas||"Ver mis citas"}</button>
             )}
 
             {/* Services */}
-            <div style={{fontSize:13,fontWeight:700,color:"#0f172a",marginBottom:12}}>Servicios disponibles</div>
-            {services.length===0 && <div style={{textAlign:"center",padding:"24px 0",color:"#94a3b8",fontFamily:"'Space Mono',monospace",fontSize:11}}>AÚN SIN SERVICIOS</div>}
+            <div style={{fontSize:13,fontWeight:700,color:"#0f172a",marginBottom:12}}>{T[idioma]?.servicios||"Servicios disponibles"}</div>
+            {services.length===0 && <div style={{textAlign:"center",padding:"24px 0",color:"#94a3b8",fontFamily:"'Space Mono',monospace",fontSize:11}}>{T[idioma]?.sinservicios||"AÚN SIN SERVICIOS"}</div>}
             {services.map(svc=>{
               const sc = {"Corte":"#E8C547","Barba":"#F97316","Combo":"#4ECDC4","Color":"#F472B6","Uñas":"#A78BFA"}[svc.categoria]||"#60A5FA";
               return (
@@ -1043,12 +1084,12 @@ export default function App() {
 
   // ── ADMIN DASHBOARD ────────────────────────────────────────────────────────
   return (
-    <div style={bg}>
+    <div style={bgDark(darkMode)}>
       <style>{CSS}</style>
       <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
 
       {/* Header */}
-      <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"12px 20px",position:"sticky",top:0,zIndex:10,boxShadow:"0 2px 8px #00000008"}}>
+      <div style={{background:darkMode?"#1e293b":"#fff",borderBottom:`1px solid ${darkMode?"#334155":"#e2e8f0"}`,padding:"12px 20px",position:"sticky",top:0,zIndex:10,boxShadow:"0 2px 8px #00000008"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <div onClick={()=>document.getElementById("fotoNeg").click()} style={{width:44,height:44,borderRadius:13,border:`2px solid ${ac}50`,overflow:"hidden",flexShrink:0,cursor:"pointer",...(negocioFoto?{backgroundImage:`url(${negocioFoto})`,backgroundSize:"cover",backgroundPosition:"center"}:{background:`${ac}20`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20})}}>
@@ -1056,7 +1097,7 @@ export default function App() {
             </div>
             <input id="fotoNeg" type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{ const f=e.target.files[0]; if(f){ const url=await f2b(f); setNegocioFoto(url); await supabase.from("negocios").update({foto_url:url}).eq("id",negocioId); } }}/>
             <div>
-              <div style={{fontSize:15,fontWeight:800,color:"#0f172a"}}>{businessName}</div>
+              <div style={{fontSize:15,fontWeight:800,color:darkMode?"#f1f5f9":"#0f172a"}}>{businessName}</div>
               <div style={{fontSize:9,color:ac,fontFamily:"'Space Mono',monospace"}}>{biz.label.toUpperCase()} · {employees.length} EMPLEADOS</div>
             </div>
           </div>
@@ -1075,14 +1116,96 @@ export default function App() {
       </div>
 
       {/* Tabs */}
-      <div style={{background:"#fff",display:"flex",borderBottom:"1px solid #e2e8f0",padding:"0 20px",overflowX:"auto"}}>
-        {[{k:"empleados",l:`${sw}s`,i:"👥"},{k:"agenda",l:"Agenda",i:"📅"},{k:"servicios",l:"Servicios",i:"📋"},{k:"productos",l:"Productos",i:"🛍️"},{k:"galeria",l:"Galería",i:"📸"},{k:"espera",l:"Espera",i:"⏳"},{k:"bloqueos",l:"Bloqueos",i:"🚫"},{k:"fidelizacion",l:"Fidelización",i:"🎁"},{k:"config",l:"Config",i:"⚙️"}].map(t=>(
-          <button key={t.k} onClick={()=>setActiveTab(t.k)} style={{background:"transparent",border:"none",borderBottom:activeTab===t.k?`3px solid ${ac}`:"3px solid transparent",color:activeTab===t.k?ac:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:12,padding:"12px 14px 10px",cursor:"pointer",marginBottom:-1,whiteSpace:"nowrap"}}>{t.i} {t.l}</button>
+      <div style={{background:darkMode?"#1e293b":"#fff",display:"flex",borderBottom:`1px solid ${darkMode?"#334155":"#e2e8f0"}`,padding:"0 20px",overflowX:"auto"}}>
+        {[{k:"estadisticas",l:"Stats",i:"📊"},{k:"empleados",l:`${sw}s`,i:"👥"},{k:"agenda",l:"Agenda",i:"📅"},{k:"servicios",l:"Servicios",i:"📋"},{k:"productos",l:"Productos",i:"🛍️"},{k:"galeria",l:"Galería",i:"📸"},{k:"espera",l:"Espera",i:"⏳"},{k:"bloqueos",l:"Bloqueos",i:"🚫"},{k:"fidelizacion",l:"Fidelización",i:"🎁"},{k:"config",l:"Config",i:"⚙️"}].map(t=>(
+          <button key={t.k} onClick={()=>setActiveTab(t.k)} style={{background:"transparent",border:"none",borderBottom:activeTab===t.k?`3px solid ${ac}`:"3px solid transparent",color:activeTab===t.k?ac:darkMode?"#94a3b8":"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:12,padding:"12px 14px 10px",cursor:"pointer",marginBottom:-1,whiteSpace:"nowrap"}}>{t.i} {t.l}</button>
         ))}
       </div>
 
       {/* ── EMPLEADOS ── */}
-      {activeTab==="empleados" && (
+      {/* ── ESTADÍSTICAS ── */}
+      {activeTab==="estadisticas" && (()=>{
+        const totalCitas = appointments.length;
+        const citasHoy = appointments.filter(a=>a.fecha===todayStr).length;
+        const citasSemana = appointments.filter(a=>weekDates.includes(a.fecha)).length;
+        const completadas = appointments.filter(a=>a.status==="completada").length;
+        const canceladas = appointments.filter(a=>a.status==="cancelada").length;
+        const pendientes = appointments.filter(a=>a.status==="pendiente"||a.status==="confirmada").length;
+        const ingresos = appointments.filter(a=>a.status==="completada").reduce((sum,a)=>{ const svc=services.find(s=>s.id===a.servicio_id); return sum+(svc?.precio||0); },0);
+        const ingresosSemana = appointments.filter(a=>a.status==="completada"&&weekDates.includes(a.fecha)).reduce((sum,a)=>{ const svc=services.find(s=>s.id===a.servicio_id); return sum+(svc?.precio||0); },0);
+        const svcCount = {};
+        appointments.forEach(a=>{ if(a.servicio_id){ svcCount[a.servicio_id]=(svcCount[a.servicio_id]||0)+1; } });
+        const topSvc = Object.entries(svcCount).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([id,count])=>({svc:services.find(s=>s.id===id),count}));
+        const empCount = {};
+        appointments.forEach(a=>{ if(a.empleado_id){ empCount[a.empleado_id]=(empCount[a.empleado_id]||0)+1; } });
+        const topEmp = Object.entries(empCount).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([id,count])=>({emp:employees.find(e=>e.id===id),count}));
+        const statCard = (icon,label,value,color="#E8C547",sub="") => (
+          <div style={{background:darkMode?"#1e293b":"#fff",borderRadius:14,padding:"16px",border:`1px solid ${darkMode?"#334155":"#e8edf5"}`,boxShadow:"0 2px 8px #0000000a"}}>
+            <div style={{fontSize:24,marginBottom:6}}>{icon}</div>
+            <div style={{fontSize:22,fontWeight:800,color}}>{value}</div>
+            <div style={{fontSize:11,color:darkMode?"#94a3b8":"#64748b",marginTop:2}}>{label}</div>
+            {sub&&<div style={{fontSize:10,color,marginTop:4,fontFamily:"'Space Mono',monospace"}}>{sub}</div>}
+          </div>
+        );
+        return (
+          <div style={{padding:"18px 20px"}}>
+            <div style={{fontSize:15,fontWeight:800,color:darkMode?"#f1f5f9":"#0f172a",marginBottom:16}}>📊 Panel de estadísticas</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:12,marginBottom:20}}>
+              {statCard("📅","Citas hoy",citasHoy,ac)}
+              {statCard("📆","Esta semana",citasSemana,"#3B82F6")}
+              {statCard("✅","Completadas",completadas,"#10B981")}
+              {statCard("⏳","Pendientes",pendientes,"#F59E0B")}
+              {statCard("❌","Canceladas",canceladas,"#EF4444")}
+              {statCard("💰","Ingresos totales",`$${ingresos}`,"#10B981",`$${ingresosSemana} esta semana`)}
+            </div>
+            {topSvc.length>0&&(
+              <div style={{background:darkMode?"#1e293b":"#fff",borderRadius:14,padding:16,border:`1px solid ${darkMode?"#334155":"#e8edf5"}`,marginBottom:12}}>
+                <div style={{fontSize:13,fontWeight:700,color:darkMode?"#f1f5f9":"#0f172a",marginBottom:12}}>🏆 Servicios más populares</div>
+                {topSvc.map(({svc,count},i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
+                    <div style={{width:28,height:28,background:`${ac}20`,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>{svc?.emoji||"✂️"}</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:12,fontWeight:600,color:darkMode?"#f1f5f9":"#0f172a"}}>{svc?.nombre||"—"}</div>
+                      <div style={{height:6,background:darkMode?"#334155":"#f1f5f9",borderRadius:3,marginTop:4,overflow:"hidden"}}>
+                        <div style={{height:"100%",width:`${Math.round((count/totalCitas)*100)}%`,background:ac,borderRadius:3}}/>
+                      </div>
+                    </div>
+                    <div style={{fontSize:12,fontWeight:700,color:ac,minWidth:30,textAlign:"right"}}>{count}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {topEmp.length>0&&(
+              <div style={{background:darkMode?"#1e293b":"#fff",borderRadius:14,padding:16,border:`1px solid ${darkMode?"#334155":"#e8edf5"}`,marginBottom:12}}>
+                <div style={{fontSize:13,fontWeight:700,color:darkMode?"#f1f5f9":"#0f172a",marginBottom:12}}>👑 Empleados con más citas</div>
+                {topEmp.map(({emp,count},i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
+                    {emp?.foto_url?<img src={emp.foto_url} style={{width:32,height:32,borderRadius:"50%",objectFit:"cover",border:`2px solid ${emp?.color||ac}40`}} alt=""/>:<div style={{width:32,height:32,borderRadius:"50%",background:`${emp?.color||ac}20`,border:`2px solid ${emp?.color||ac}40`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,color:emp?.color||ac,flexShrink:0}}>{emp?.avatar||"?"}</div>}
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:12,fontWeight:600,color:darkMode?"#f1f5f9":"#0f172a"}}>{emp?.nombre||"—"}</div>
+                      <div style={{height:6,background:darkMode?"#334155":"#f1f5f9",borderRadius:3,marginTop:4,overflow:"hidden"}}>
+                        <div style={{height:"100%",width:`${Math.round((count/totalCitas)*100)}%`,background:emp?.color||ac,borderRadius:3}}/>
+                      </div>
+                    </div>
+                    <div style={{fontSize:12,fontWeight:700,color:emp?.color||ac,minWidth:30,textAlign:"right"}}>{count}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{background:darkMode?"#1e293b":"#fff",borderRadius:14,padding:16,border:`1px solid ${darkMode?"#334155":"#e8edf5"}`}}>
+              <div style={{fontSize:13,fontWeight:700,color:darkMode?"#f1f5f9":"#0f172a",marginBottom:12}}>📈 Resumen general</div>
+              {[["👥","Empleados activos",employees.length],["📋","Servicios disponibles",services.length],["🛍️","Productos en venta",products.length],["📸","Fotos en galería",galeria.length],["⭐","Reseñas recibidas",resenas.length],["⏳","En lista de espera",listaEspera.length]].map(([i,l,v])=>(
+                <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${darkMode?"#334155":"#f1f5f9"}`}}>
+                  <span style={{fontSize:12,color:darkMode?"#94a3b8":"#64748b"}}>{i} {l}</span>
+                  <span style={{fontSize:12,fontWeight:700,color:darkMode?"#f1f5f9":"#0f172a"}}>{v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── EMPLEADOS ── */}
         <div style={{padding:"18px 20px"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:8}}>
             <div style={{display:"flex",gap:6,overflowX:"auto"}}>
@@ -1503,44 +1626,104 @@ export default function App() {
       {/* ── CONFIG ── */}
       {activeTab==="config" && (
         <div style={{padding:"18px 20px"}}>
-          <div style={{fontSize:15,fontWeight:800,color:"#0f172a",marginBottom:16}}>⚙️ Configuración</div>
+          <div style={{fontSize:15,fontWeight:800,color:darkMode?"#f1f5f9":"#0f172a",marginBottom:16}}>⚙️ Configuración</div>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div style={{...card(),padding:16}}>
-              <div style={{fontSize:12,fontWeight:700,color:"#334155",marginBottom:10}}>📍 Dirección y contacto</div>
+
+            {/* Dirección y contacto */}
+            <div style={{background:darkMode?"#1e293b":"#fff",borderRadius:16,border:`1px solid ${darkMode?"#334155":"#e8edf5"}`,padding:16}}>
+              <div style={{fontSize:12,fontWeight:700,color:darkMode?"#f1f5f9":"#334155",marginBottom:10}}>📍 Dirección y contacto</div>
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
                 <div>
                   <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:5}}>DIRECCIÓN</div>
-                  <input
-                    value={negDireccion}
-                    onChange={e=>{setNegDireccion(e.target.value);setConfigSaved(false);}}
-                    placeholder="Ej: Calle Principal #123, Santo Domingo"
-                    style={inp()}
-                  />
+                  <input value={negDireccion} onChange={e=>{setNegDireccion(e.target.value);setConfigSaved(false);}} placeholder="Ej: Calle Principal #123" style={inpDark(darkMode)}/>
                 </div>
                 <div>
                   <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:5}}>WHATSAPP DEL NEGOCIO</div>
-                  <input
-                    value={negWA}
-                    onChange={e=>{setNegWA(e.target.value);setConfigSaved(false);}}
-                    placeholder="Ej: 18091234567 (con código de país)"
-                    style={inp()}
-                  />
+                  <input value={negWA} onChange={e=>{setNegWA(e.target.value);setConfigSaved(false);}} placeholder="Ej: 18091234567" style={inpDark(darkMode)}/>
                   <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>Los clientes recibirán notificación automática aquí cuando reserven</div>
                 </div>
-                <button
-                  onClick={async()=>{
-                    await supabase.from("negocios").update({direccion:negDireccion,whatsapp:negWA}).eq("id",negocioId);
-                    setConfigSaved(true);
-                    setTimeout(()=>setConfigSaved(false),3000);
-                  }}
-                  style={{background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:13,padding:"12px",borderRadius:10,cursor:"pointer",marginTop:4}}
-                >
-                  {configSaved ? "✅ ¡Guardado!" : "💾 Guardar cambios"}
+                <button onClick={async()=>{ await supabase.from("negocios").update({direccion:negDireccion,whatsapp:negWA}).eq("id",negocioId); setConfigSaved(true); setTimeout(()=>setConfigSaved(false),3000); }} style={{background:configSaved?"#10B981":`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:configSaved?"#fff":"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:13,padding:"12px",borderRadius:10,cursor:"pointer",transition:"all .3s"}}>
+                  {configSaved?"✅ ¡Guardado!":"💾 Guardar cambios"}
                 </button>
               </div>
             </div>
-            <div style={{...card(),padding:16}}>
-              <div style={{fontSize:12,fontWeight:700,color:"#334155",marginBottom:4}}>🗑️ Zona de peligro</div>
+
+            {/* Horario del negocio */}
+            <div style={{background:darkMode?"#1e293b":"#fff",borderRadius:16,border:`1px solid ${darkMode?"#334155":"#e8edf5"}`,padding:16}}>
+              <div style={{fontSize:12,fontWeight:700,color:darkMode?"#f1f5f9":"#334155",marginBottom:10}}>🕐 Horario del negocio</div>
+              {(()=>{
+                const DEFAULT_NEG_HOR = {lunes:{abre:"9:00",cierra:"18:00"},martes:{abre:"9:00",cierra:"18:00"},miercoles:{abre:"9:00",cierra:"18:00"},jueves:{abre:"9:00",cierra:"18:00"},viernes:{abre:"9:00",cierra:"18:00"},sabado:{abre:"9:00",cierra:"14:00"},domingo:null};
+                const hor = negHorario||DEFAULT_NEG_HOR;
+                const dias = ["lunes","martes","miercoles","jueves","viernes","sabado","domingo"];
+                const labels = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
+                return(
+                  <div>
+                    {dias.map((d,i)=>{
+                      const h=hor[d];
+                      return(
+                        <div key={d} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,padding:"8px 12px",background:h?darkMode?"#0f172a":"#f8fafc":darkMode?"#2d1515":"#FFF5F5",borderRadius:8,border:`1px solid ${h?darkMode?"#334155":"#e2e8f0":darkMode?"#5c2626":"#FECACA"}`}}>
+                          <div style={{width:56,fontSize:11,fontWeight:700,color:h?darkMode?"#f1f5f9":"#334155":"#94a3b8"}}>{labels[i]}</div>
+                          {h?(
+                            <>
+                              <select value={h.abre} onChange={e=>{ const n={...hor,[d]:{...h,abre:e.target.value}}; setNegHorario(n); supabase.from("negocios").update({horario_negocio:n}).eq("id",negocioId); }} style={{...inpDark(darkMode,{width:"auto",fontSize:11,padding:"4px 6px"})}}>
+                                {HOURS.map(hh=><option key={hh} value={hh}>{hh}</option>)}
+                              </select>
+                              <span style={{fontSize:11,color:"#94a3b8"}}>–</span>
+                              <select value={h.cierra} onChange={e=>{ const n={...hor,[d]:{...h,cierra:e.target.value}}; setNegHorario(n); supabase.from("negocios").update({horario_negocio:n}).eq("id",negocioId); }} style={{...inpDark(darkMode,{width:"auto",fontSize:11,padding:"4px 6px"})}}>
+                                {HOURS.map(hh=><option key={hh} value={hh}>{hh}</option>)}
+                              </select>
+                              <button onClick={()=>{ const n={...hor,[d]:null}; setNegHorario(n); supabase.from("negocios").update({horario_negocio:n}).eq("id",negocioId); }} style={{marginLeft:"auto",background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:10,whiteSpace:"nowrap"}}>Cerrado</button>
+                            </>
+                          ):(
+                            <>
+                              <div style={{flex:1,fontSize:11,color:"#DC2626",fontFamily:"'Space Mono',monospace"}}>CERRADO</div>
+                              <button onClick={()=>{ const n={...hor,[d]:{abre:"9:00",cierra:"18:00"}}; setNegHorario(n); supabase.from("negocios").update({horario_negocio:n}).eq("id",negocioId); }} style={{background:"#D1FAE5",border:"1px solid #6EE7B7",color:"#065F46",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:10,fontFamily:"'Syne',sans-serif",fontWeight:600}}>+ Abrir</button>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Límite de citas por hora */}
+            <div style={{background:darkMode?"#1e293b":"#fff",borderRadius:16,border:`1px solid ${darkMode?"#334155":"#e8edf5"}`,padding:16}}>
+              <div style={{fontSize:12,fontWeight:700,color:darkMode?"#f1f5f9":"#334155",marginBottom:4}}>⏱️ Capacidad por hora</div>
+              <div style={{fontSize:11,color:"#64748b",marginBottom:12}}>Máximo de clientes que puede atender el negocio en un mismo horario</div>
+              <div style={{display:"flex",gap:8}}>
+                {[1,2,3,4,5].map(n=>(
+                  <button key={n} onClick={async()=>{ setMaxCitasHora(n); await supabase.from("negocios").update({max_citas_por_hora:n}).eq("id",negocioId); }} style={{flex:1,background:maxCitasHora===n?ac:darkMode?"#0f172a":"#f1f5f9",border:`1px solid ${maxCitasHora===n?ac:darkMode?"#334155":"#e2e8f0"}`,color:maxCitasHora===n?"#0f172a":darkMode?"#94a3b8":"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:13,padding:"10px",borderRadius:10,cursor:"pointer"}}>{n}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Apariencia e idioma */}
+            <div style={{background:darkMode?"#1e293b":"#fff",borderRadius:16,border:`1px solid ${darkMode?"#334155":"#e8edf5"}`,padding:16}}>
+              <div style={{fontSize:12,fontWeight:700,color:darkMode?"#f1f5f9":"#334155",marginBottom:12}}>🎨 Apariencia e idioma</div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:600,color:darkMode?"#f1f5f9":"#334155"}}>🌙 Modo oscuro</div>
+                  <div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>Cambia el tema de la app</div>
+                </div>
+                <div onClick={()=>{ const v=!darkMode; setDarkMode(v); localStorage.setItem("procita_dark",v?"1":"0"); }} style={{width:44,height:24,background:darkMode?"#6366F1":"#e2e8f0",borderRadius:12,cursor:"pointer",position:"relative",transition:"all .3s"}}>
+                  <div style={{width:20,height:20,background:"#fff",borderRadius:"50%",position:"absolute",top:2,left:darkMode?22:2,transition:"all .3s",boxShadow:"0 1px 4px #00000030"}}/>
+                </div>
+              </div>
+              <div>
+                <div style={{fontSize:13,fontWeight:600,color:darkMode?"#f1f5f9":"#334155",marginBottom:8}}>🌐 Idioma de la app</div>
+                <div style={{display:"flex",gap:8}}>
+                  {[{k:"es",l:"🇪🇸 Español"},{k:"en",l:"🇺🇸 English"}].map(lng=>(
+                    <button key={lng.k} onClick={()=>{ setIdioma(lng.k); localStorage.setItem("procita_lang",lng.k); }} style={{flex:1,background:idioma===lng.k?ac:darkMode?"#0f172a":"#f1f5f9",border:`1px solid ${idioma===lng.k?ac:darkMode?"#334155":"#e2e8f0"}`,color:idioma===lng.k?"#0f172a":darkMode?"#94a3b8":"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"10px",borderRadius:10,cursor:"pointer"}}>{lng.l}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Zona de peligro */}
+            <div style={{background:darkMode?"#2d1515":"#fff",borderRadius:16,border:`1px solid ${darkMode?"#5c2626":"#e8edf5"}`,padding:16}}>
+              <div style={{fontSize:12,fontWeight:700,color:"#DC2626",marginBottom:4}}>🗑️ Zona de peligro</div>
               <div style={{fontSize:11,color:"#64748b",marginBottom:12}}>Esta acción es irreversible. Se eliminará el negocio y todos sus datos.</div>
               <button onClick={deleteNegocio} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:13,padding:"10px 20px",borderRadius:10,cursor:"pointer"}}>🗑️ Eliminar mi negocio</button>
             </div>
