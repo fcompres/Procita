@@ -42,6 +42,14 @@ const inpDark  = (dark,x={}) => ({ background:dark?"#1e293b":"#f8fafc", border:`
 const cardDark = (dark,x={}) => ({ background:dark?"#1e293b":"#fff", borderRadius:16, boxShadow:dark?"0 2px 12px #00000040":"0 2px 12px #0000000d", border:`1px solid ${dark?"#334155":"#e8edf5"}`, ...x });
 const bgDark   = (dark) => ({ minHeight:"100vh", background:dark?"#0f172a":"#f1f5f9", color:dark?"#f1f5f9":"#1e293b", fontFamily:"'Syne',sans-serif" });
 const f2b  = (file) => new Promise((res,rej)=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsDataURL(file); });
+const uploadToStorage = async (file, folder="general") => {
+  const ext  = file.name.split(".").pop();
+  const path = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const { error } = await supabase.storage.from("FOTOS").upload(path, file, { upsert:true, contentType:file.type });
+  if(error){ console.error("Storage error:", error); return null; }
+  const { data } = supabase.storage.from("FOTOS").getPublicUrl(path);
+  return data.publicUrl;
+};
 
 // ── PUSH NOTIFICATIONS ────────────────────────────────────────────────────────
 const VAPID_PUBLIC = "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDkBNj3R5-V08IUh13TMtPBuQMwOoOFcGxYLNtlBn8"; // demo key
@@ -1102,7 +1110,7 @@ export default function App() {
             <div onClick={()=>document.getElementById("fotoNeg").click()} style={{width:44,height:44,borderRadius:13,border:`2px solid ${ac}50`,overflow:"hidden",flexShrink:0,cursor:"pointer",...(negocioFoto?{backgroundImage:`url(${negocioFoto})`,backgroundSize:"cover",backgroundPosition:"center"}:{background:`${ac}20`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20})}}>
               {!negocioFoto && biz.icon}
             </div>
-            <input id="fotoNeg" type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{ const f=e.target.files[0]; if(f){ const url=await f2b(f); setNegocioFoto(url); await supabase.from("negocios").update({foto_url:url}).eq("id",negocioId); } }}/>
+            <input id="fotoNeg" type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{ const f=e.target.files[0]; if(f){ const url=await uploadToStorage(f,"negocios"); if(url){ setNegocioFoto(url); await supabase.from("negocios").update({foto_url:url}).eq("id",negocioId); } } }}/>
             <div>
               <div style={{fontSize:15,fontWeight:800,color:darkMode?"#f1f5f9":"#0f172a"}}>{businessName}</div>
               <div style={{fontSize:9,color:ac,fontFamily:"'Space Mono',monospace"}}>{biz.label.toUpperCase()} · {employees.length} EMPLEADOS</div>
@@ -1775,7 +1783,7 @@ export default function App() {
                   {svcF.foto && <img src={svcF.foto} style={{width:60,height:60,borderRadius:10,objectFit:"cover",border:"1px solid #e2e8f0"}} alt=""/>}
                   <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600}}>
                     📷 {svcF.foto?"Cambiar":"Subir foto"}
-                    <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{ const f=e.target.files[0]; if(f){ const url=await f2b(f); setSvcF(x=>({...x,foto:url})); } }}/>
+                    <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{ const f=e.target.files[0]; if(f){ const url=await uploadToStorage(f,"servicios"); if(url)setSvcF(x=>({...x,foto:url})); } }}/>
                   </label>
                   {svcF.foto && <button onClick={()=>setSvcF(x=>({...x,foto:""}))} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11}}>✕</button>}
                 </div>
@@ -1814,7 +1822,7 @@ export default function App() {
                   {prodF.foto && <img src={prodF.foto} style={{width:60,height:60,borderRadius:10,objectFit:"cover",border:"1px solid #e2e8f0"}} alt=""/>}
                   <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600}}>
                     📷 {prodF.foto?"Cambiar":"Subir foto"}
-                    <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{ const f=e.target.files[0]; if(f){ const url=await f2b(f); setProdF(x=>({...x,foto:url})); } }}/>
+                    <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{ const f=e.target.files[0]; if(f){ const url=await uploadToStorage(f,"productos"); if(url)setProdF(x=>({...x,foto:url})); } }}/>
                   </label>
                   {prodF.foto && <button onClick={()=>setProdF(x=>({...x,foto:""}))} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11}}>✕</button>}
                 </div>
@@ -1850,7 +1858,7 @@ export default function App() {
               {galFoto && <img src={galFoto} style={{width:"100%",height:180,objectFit:"cover",borderRadius:12,border:"1px solid #e2e8f0"}} alt=""/>}
               <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"14px",cursor:"pointer",fontSize:13,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,textAlign:"center"}}>
                 📷 {galFoto?"Cambiar foto":"Seleccionar foto"}
-                <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{ const f=e.target.files[0]; if(f){ const url=await f2b(f); setGalFoto(url); } }}/>
+                <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{ const f=e.target.files[0]; if(f){ const url=await uploadToStorage(f,"galeria"); if(url)setGalFoto(url); } }}/>
               </label>
               <input value={galDesc} onChange={e=>setGalDesc(e.target.value)} placeholder="Descripción (ej: Fade clásico con diseño)" style={inp()}/>
             </div>
@@ -1951,7 +1959,7 @@ export default function App() {
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
                   <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600}}>
                     📷 {editEmpFoto?"Cambiar foto":"Subir foto"}
-                    <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(f){const url=await f2b(f);setEditEmpFoto(url);}}}/>
+                    <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(f){const url=await uploadToStorage(f,"empleados");if(url)setEditEmpFoto(url);}}}/>
                   </label>
                   {editEmpFoto&&<button onClick={()=>setEditEmpFoto("")} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11,fontFamily:"'Syne',sans-serif"}}>✕ Quitar foto</button>}
                 </div>
@@ -2065,7 +2073,7 @@ export default function App() {
                 <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>FOTO (OPCIONAL)</div>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   {svcF.foto&&<img src={svcF.foto} style={{width:60,height:60,borderRadius:10,objectFit:"cover",border:"1px solid #e2e8f0"}} alt=""/>}
-                  <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600}}>📷 {svcF.foto?"Cambiar":"Subir foto"}<input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(f){const url=await f2b(f);setSvcF(x=>({...x,foto:url}));}}}/></label>
+                  <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600}}>📷 {svcF.foto?"Cambiar":"Subir foto"}<input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(f){const url=await uploadToStorage(f,"servicios");if(url)setSvcF(x=>({...x,foto:url}));}}}/></label>
                   {svcF.foto&&<button onClick={()=>setSvcF(x=>({...x,foto:""}))} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11}}>✕</button>}
                 </div>
               </div>
@@ -2099,7 +2107,7 @@ export default function App() {
                 <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>FOTO (OPCIONAL)</div>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   {prodF.foto&&<img src={prodF.foto} style={{width:60,height:60,borderRadius:10,objectFit:"cover",border:"1px solid #e2e8f0"}} alt=""/>}
-                  <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600}}>📷 {prodF.foto?"Cambiar":"Subir foto"}<input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(f){const url=await f2b(f);setProdF(x=>({...x,foto:url}));}}}/></label>
+                  <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600}}>📷 {prodF.foto?"Cambiar":"Subir foto"}<input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(f){const url=await uploadToStorage(f,"productos");if(url)setProdF(x=>({...x,foto:url}));}}}/></label>
                   {prodF.foto&&<button onClick={()=>setProdF(x=>({...x,foto:""}))} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11}}>✕</button>}
                 </div>
               </div>
@@ -2130,7 +2138,7 @@ export default function App() {
             <div style={{fontSize:16,fontWeight:800,color:"#0f172a",marginBottom:20}}>📸 Agregar foto a la galería</div>
             <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:16}}>
               {galFoto&&<img src={galFoto} style={{width:"100%",height:180,objectFit:"cover",borderRadius:12,border:"1px solid #e2e8f0"}} alt=""/>}
-              <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"14px",cursor:"pointer",fontSize:13,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,textAlign:"center"}}>📷 {galFoto?"Cambiar foto":"Seleccionar foto"}<input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(f){const url=await f2b(f);setGalFoto(url);}}}/></label>
+              <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"14px",cursor:"pointer",fontSize:13,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,textAlign:"center"}}>📷 {galFoto?"Cambiar foto":"Seleccionar foto"}<input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(f){const url=await uploadToStorage(f,"galeria");if(url)setGalFoto(url);}}}/></label>
               <input value={galDesc} onChange={e=>setGalDesc(e.target.value)} placeholder="Descripción (ej: Fade clásico con diseño)" style={inp()}/>
             </div>
             <div style={{display:"flex",gap:10}}>
