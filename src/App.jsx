@@ -77,8 +77,8 @@ const bzIcon  = (tipo) => BIZ_TYPES.find(t=>t.key===tipo)?.icon  || "✂️";
 const APP_URL = typeof window !== "undefined" ? window.location.origin : "https://procita.vercel.app";
 
 const T = {
-  es:{reservar:"Reservar cita",miscitas:"Ver mis citas",servicios:"Servicios disponibles",sinservicios:"AÚN SIN SERVICIOS",galeria:"Galería de trabajos",resenas:"Reseñas",dejarResena:"+ Dejar reseña",listaEspera:"¿No hay hora disponible?",unirme:"Unirme a la lista de espera",confirmar:"Confirmar cita ✓",nueva:"Nueva cita",masNegocios:"Más negocios",elegir:"Elige tu negocio",buscar:"Buscar negocio por nombre…",todos:"Todos",reservarBtn:"Reservar →",cualquier:"Cualquier disponible"},
-  en:{reservar:"Book appointment",miscitas:"My appointments",servicios:"Available services",sinservicios:"NO SERVICES YET",galeria:"Work gallery",resenas:"Reviews",dejarResena:"+ Leave review",listaEspera:"No availability?",unirme:"Join waitlist",confirmar:"Confirm ✓",nueva:"New appointment",masNegocios:"More businesses",elegir:"Choose a business",buscar:"Search business by name…",todos:"All",reservarBtn:"Book →",cualquier:"Any available"},
+  es:{reservar:"Reservar cita",miscitas:"Ver mis citas",servicios:"Servicios disponibles",sinservicios:"AÚN SIN SERVICIOS",galeria:"Galería de trabajos",resenas:"Reseñas",dejarResena:"+ Dejar reseña",listaEspera:"¿No hay hora disponible?",unirme:"Unirme a la lista de espera",confirmar:"Confirmar cita ✓",nueva:"Nueva cita",masNegocios:"Más negocios",elegir:"Elige tu negocio",buscar:"Buscar negocio por nombre…",todos:"Todos",reservarBtn:"Reservar →",cualquier:"Cualquier disponible",selServicio:{T[idioma]?.selServicio||"Selecciona un servicio"},selProfesional:{T[idioma]?.selProfesional||"Elige un profesional"},fechaHora:{T[idioma]?.fechaHora||"Fecha y hora"},confirmarCita:{T[idioma]?.confirmarCita||"Confirma tu cita"},tuNombre:{T[idioma]?.tuNombre||"Tu nombre completo *"},tuTel:{T[idioma]?.tuTel||"Teléfono / WhatsApp (opcional)"},volver:"← Volver",continuar:"Continuar →",citaConfirmada:"¡Cita confirmada!",productos:"Productos disponibles",sinProductos:"SIN PRODUCTOS AÚN",manda:"PAGO EN EL LOCAL",misCitasTitulo:{T[idioma]?.misCitasTitulo||"Mis citas"},sinCitas:"No tienes citas registradas",reagendar:"Reagendar",cancelar:"Cancelar",abierto:"Abierto ahora",cerrado:"Cerrado ahora",horario:"Horario"},
+  en:{reservar:"Book appointment",miscitas:"My appointments",servicios:"Available services",sinservicios:"NO SERVICES YET",galeria:"Work gallery",resenas:"Reviews",dejarResena:"+ Leave review",listaEspera:"No availability?",unirme:"Join waitlist",confirmar:"Confirm ✓",nueva:"New appointment",masNegocios:"More businesses",elegir:"Choose a business",buscar:"Search business by name…",todos:"All",reservarBtn:"Book →",cualquier:"Any available",selServicio:"Select a service",selProfesional:"Choose a professional",fechaHora:"Date & time",confirmarCita:"Confirm your appointment",tuNombre:"Your full name *",tuTel:"Phone / WhatsApp (optional)",volver:"← Back",continuar:"Continue →",citaConfirmada:"Appointment confirmed!",productos:"Products available",sinProductos:"NO PRODUCTS YET",manda:"PAY AT THE LOCATION",misCitasTitulo:"My appointments",sinCitas:"No appointments found",reagendar:"Reschedule",cancelar:"Cancel",abierto:"Open now",cerrado:"Closed now",horario:"Schedule"},
 };
 
 const DK = (dark) => dark ? {bg:"#0f172a",card:"#1e293b",border:"#334155",text:"#f1f5f9",sub:"#94a3b8",input:{background:"#1e293b",border:"1px solid #334155",color:"#f1f5f9"}} : {bg:"#f1f5f9",card:"#fff",border:"#e8edf5",text:"#1e293b",sub:"#64748b",input:{background:"#f8fafc",border:"1px solid #e2e8f0",color:"#1e293b"}};
@@ -208,6 +208,7 @@ function Directory({negocios, user, isGuest, idioma="es", onSelect, onLogout, on
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           {isGuest && <div style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:20,padding:"4px 10px",fontSize:9,color:"#92400E",fontFamily:"'Space Mono',monospace"}}>INVITADO</div>}
+          <button onClick={()=>{ const v=idioma==="es"?"en":"es"; setIdioma(v); localStorage.setItem("procita_lang",v); }} style={{background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#475569",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"5px 8px",borderRadius:8,cursor:"pointer"}}>{idioma==="es"?"EN":"ES"}</button>
           {!isGuest && user?.user_metadata?.picture && <img src={user.user_metadata.picture} style={{width:30,height:30,borderRadius:"50%",border:"2px solid #e2e8f0"}} alt=""/>}
           {onBackToDashboard && <button onClick={onBackToDashboard} style={{background:"#FEF3C7",border:"1px solid #FDE68A",color:"#92400E",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>🏪 Mi panel</button>}
           <button onClick={onLogout} style={{background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>Salir</button>
@@ -277,6 +278,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [user,        setUser]        = useState(null);
   const [isGuest,     setIsGuest]     = useState(false);
+  const [userRole,    setUserRole]    = useState(null); // "cliente" | "negocio"
   const [screen,      setScreen]      = useState("auth"); // auth|role|directory|setup|dashboard|client
 
   // Business data
@@ -400,6 +402,7 @@ export default function App() {
           setNegocioId(savedNegId);
           setBusinessName(savedNegName||"");
           setBusinessType(savedNegType||null);
+          setUserRole("negocio");
           await loadData(savedNegId);
           setScreen("dashboard");
         } else {
@@ -450,6 +453,7 @@ export default function App() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    setUserRole(null);
     localStorage.removeItem("procita_screen");
     localStorage.removeItem("procita_negid");
     localStorage.removeItem("procita_negname");
@@ -461,6 +465,7 @@ export default function App() {
   };
 
   const handleRoleSelect = async (role) => {
+    setUserRole(role);
     if(role==="cliente"){
       await loadNegocios();
       setScreen("directory");
@@ -475,6 +480,8 @@ export default function App() {
         localStorage.setItem("procita_negid",data.id);
         localStorage.setItem("procita_negname",data.nombre);
         localStorage.setItem("procita_negtype",data.tipo);
+        localStorage.setItem("procita_role","negocio");
+        setUserRole("negocio");
         setScreen("dashboard");
       } else {
         setScreen("setup");
@@ -643,7 +650,7 @@ export default function App() {
   if(authLoading)    return <Loader text="INICIANDO PROCITA..."/>;
   if(screen==="auth") return <AuthScreen onGuest={handleGuestMode}/>;
   if(screen==="role") return <RoleSelector user={user} onSelect={handleRoleSelect} onLogout={handleLogout}/>;
-  if(screen==="directory") return <Directory negocios={negocios} user={user} isGuest={isGuest} idioma={idioma} onLogout={handleLogout} onBackToDashboard={negocioId?()=>setScreen("dashboard"):null} onSelect={neg=>{ setSelectedNeg(neg); setBusinessType(neg.tipo); setBusinessName(neg.nombre); setNegocioFoto(neg.foto_url||null); loadData(neg.id).then(()=>{ setNegocioId(neg.id); setClientView("home"); setScreen("client"); }); }}/>;
+  if(screen==="directory") return <Directory negocios={negocios} user={user} isGuest={isGuest} idioma={idioma} onLogout={handleLogout} onBackToDashboard={(!isGuest && userRole==="negocio" && negocioId)?()=>setScreen("dashboard"):null} onSelect={neg=>{ setSelectedNeg(neg); setBusinessType(neg.tipo); setBusinessName(neg.nombre); setNegocioFoto(neg.foto_url||null); loadData(neg.id).then(()=>{ setNegocioId(neg.id); setClientView("home"); setScreen("client"); }); }}/>;
 
   // ── SETUP ──────────────────────────────────────────────────────────────────
   if(screen==="setup") {
@@ -675,7 +682,7 @@ export default function App() {
           <button onClick={saveBusiness} disabled={!businessName.trim()||!businessType||saving} style={{width:"100%",background:businessName.trim()&&businessType?"linear-gradient(135deg,#E8C547,#f0a500)":"#e2e8f0",border:"none",color:businessName.trim()&&businessType?"#0f172a":"#94a3b8",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:15,padding:14,borderRadius:12,cursor:"pointer"}}>
             {saving?"Guardando...":"Publicar mi negocio →"}
           </button>
-          <button onClick={handleLogout} style={{width:"100%",background:"transparent",border:"none",color:"#94a3b8",fontFamily:"'Syne',sans-serif",fontSize:12,padding:"10px",cursor:"pointer",marginTop:6}}>← Volver</button>
+          <button onClick={handleLogout} style={{width:"100%",background:"transparent",border:"none",color:"#94a3b8",fontFamily:"'Syne',sans-serif",fontSize:12,padding:"10px",cursor:"pointer",marginTop:6}}>{T[idioma]?.volver||"← Volver"}</button>
         </div>
       </div>
     );
@@ -709,7 +716,7 @@ export default function App() {
         {clientView==="confirm" && (
           <div style={{padding:32,textAlign:"center"}}>
             <div style={{fontSize:60,marginBottom:16}}>🎉</div>
-            <div style={{fontSize:20,fontWeight:800,color:"#0f172a",marginBottom:6}}>¡Cita confirmada!</div>
+            <div style={{fontSize:20,fontWeight:800,color:"#0f172a",marginBottom:6}}>{T[idioma]?.citaConfirmada||"¡Cita confirmada!"}</div>
             <div style={{fontSize:12,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:24}}>TE ESPERAMOS</div>
             <div style={{...card(),padding:20,textAlign:"left",maxWidth:340,margin:"0 auto 20px"}}>
               {[[`${bt.icon} Servicio`,bkSvc?.nombre],[`💰 Precio`,`$${bkSvc?.precio}`],[`👤 Profesional`,bkEmp?.nombre||"Cualquier disponible"],[`📅 Fecha`,bkDate],[`🕐 Hora`,bkTime],[`👤 Cliente`,bkName]].filter(([,v])=>v).map(([l,v])=>(
@@ -795,7 +802,7 @@ export default function App() {
                     </div>
                   </div>
                 ))}
-                <button onClick={()=>setStep(1)} style={{width:"100%",background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"10px",borderRadius:10,cursor:"pointer",marginTop:6}}>← Volver</button>
+                <button onClick={()=>setStep(1)} style={{width:"100%",background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"10px",borderRadius:10,cursor:"pointer",marginTop:6}}>{T[idioma]?.volver||"← Volver"}</button>
               </div>
             )}
 
@@ -825,8 +832,8 @@ export default function App() {
                   </div>
                 </div>
                 <div style={{display:"flex",gap:10}}>
-                  <button onClick={()=>setStep(2)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>← Volver</button>
-                  <button disabled={!bkTime} onClick={()=>setStep(4)} style={{flex:2,background:bkTime?`linear-gradient(135deg,${cc},${cc}cc)`:"#e2e8f0",border:"none",color:bkTime?"#0f172a":"#94a3b8",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:bkTime?"pointer":"not-allowed"}}>Continuar →</button>
+                  <button onClick={()=>setStep(2)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>{T[idioma]?.volver||"← Volver"}</button>
+                  <button disabled={!bkTime} onClick={()=>setStep(4)} style={{flex:2,background:bkTime?`linear-gradient(135deg,${cc},${cc}cc)`:"#e2e8f0",border:"none",color:bkTime?"#0f172a":"#94a3b8",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:bkTime?"pointer":"not-allowed"}}>{T[idioma]?.continuar||"Continuar →"}</button>
                 </div>
               </div>
             )}
@@ -844,11 +851,11 @@ export default function App() {
                   ))}
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
-                  <input value={bkName} onChange={e=>setBkName(e.target.value)} placeholder="Tu nombre completo *" style={inp()}/>
-                  <input value={bkPhone} onChange={e=>setBkPhone(e.target.value)} placeholder="Teléfono / WhatsApp (opcional)" style={inp()}/>
+                  <input value={bkName} onChange={e=>setBkName(e.target.value)} placeholder={T[idioma]?.tuNombre||"Tu nombre completo *"} style={inp()}/>
+                  <input value={bkPhone} onChange={e=>setBkPhone(e.target.value)} placeholder={T[idioma]?.tuTel||"Teléfono / WhatsApp (opcional)"} style={inp()}/>
                 </div>
                 <div style={{display:"flex",gap:10}}>
-                  <button onClick={()=>setStep(3)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>← Volver</button>
+                  <button onClick={()=>setStep(3)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>{T[idioma]?.volver||"← Volver"}</button>
                   <button disabled={!bkName.trim()} onClick={confirmBooking} style={{flex:2,background:bkName.trim()?`linear-gradient(135deg,${cc},${cc}cc)`:"#e2e8f0",border:"none",color:bkName.trim()?"#0f172a":"#94a3b8",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:bkName.trim()?"pointer":"not-allowed"}}>{T[idioma]?.confirmar||"Confirmar cita ✓"}</button>
                 </div>
               </div>
@@ -979,7 +986,7 @@ export default function App() {
             {/* Products */}
             {products.length>0 && (
               <div>
-                <div style={{fontSize:13,fontWeight:700,color:"#0f172a",margin:"20px 0 12px",display:"flex",alignItems:"center",gap:8}}>🛍️ Productos <span style={{fontSize:10,color:"#94a3b8",fontFamily:"'Space Mono',monospace",fontWeight:400}}>PAGO EN EL LOCAL</span></div>
+                <div style={{fontSize:13,fontWeight:700,color:"#0f172a",margin:"20px 0 12px",display:"flex",alignItems:"center",gap:8}}>🛍️ Productos <span style={{fontSize:10,color:"#94a3b8",fontFamily:"'Space Mono',monospace",fontWeight:400}}>{T[idioma]?.manda||"PAGO EN EL LOCAL"}</span></div>
                 {products.map(prod=>(
                   <div key={prod.id} style={{...card(),padding:"12px 14px",display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
                     {prod.foto_url ? <img src={prod.foto_url} style={{width:38,height:38,borderRadius:8,objectFit:"cover"}} alt=""/> : <div style={{fontSize:20,width:38,height:38,background:"#60A5FA15",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"}}>{prod.emoji}</div>}
