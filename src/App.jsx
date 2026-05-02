@@ -293,6 +293,8 @@ export default function App() {
   const [negocios,     setNegocios]     = useState([]);
   const [selectedNeg,  setSelectedNeg]  = useState(null);
   const [negocioId,    setNegocioId]    = useState(null);
+  const [misNegocios,  setMisNegocios]  = useState([]);
+  const [showNegPicker,setShowNegPicker]= useState(false);
   const [negocioFoto,  setNegocioFoto]  = useState(null);
   const [businessName, setBusinessName] = useState("");
   const [businessType, setBusinessType] = useState(null);
@@ -478,30 +480,53 @@ export default function App() {
       await loadNegocios();
       setScreen("directory");
     } else {
-      const {data} = await supabase.from("negocios").select("*").eq("user_id",user.id).single();
-      if(data){
-        setNegocioId(data.id); setBusinessName(data.nombre); setBusinessType(data.tipo);
-        setNegocioFoto(data.foto_url||null);
-        await loadData(data.id);
-        // Save session so user returns to dashboard on reload
+      const {data} = await supabase.from("negocios").select("*").eq("user_id",user.id);
+      if(data && data.length===1){
+        const neg = data[0];
+        setMisNegocios(data);
+        setNegocioId(neg.id); setBusinessName(neg.nombre); setBusinessType(neg.tipo);
+        setNegocioFoto(neg.foto_url||null);
+        await loadData(neg.id);
         localStorage.setItem("procita_screen","dashboard");
-        localStorage.setItem("procita_negid",data.id);
-        localStorage.setItem("procita_negname",data.nombre);
-        localStorage.setItem("procita_negtype",data.tipo);
+        localStorage.setItem("procita_negid",neg.id);
+        localStorage.setItem("procita_negname",neg.nombre);
+        localStorage.setItem("procita_negtype",neg.tipo);
         localStorage.setItem("procita_role","negocio");
         setUserRole("negocio");
         setScreen("dashboard");
+      } else if(data && data.length>1){
+        setMisNegocios(data);
+        setShowNegPicker(true);
       } else {
         setScreen("setup");
       }
     }
   };
 
+  const switchNegocio = async (neg) => {
+    setNegocioId(neg.id); setBusinessName(neg.nombre); setBusinessType(neg.tipo);
+    setNegocioFoto(neg.foto_url||null);
+    await loadData(neg.id);
+    localStorage.setItem("procita_negid",neg.id);
+    localStorage.setItem("procita_negname",neg.nombre);
+    localStorage.setItem("procita_negtype",neg.tipo);
+    setShowNegPicker(false);
+    setScreen("dashboard");
+  };
+
   const saveBusiness = async () => {
     if(!businessName.trim()||!businessType) return;
     setSaving(true);
     const {data,error} = await supabase.from("negocios").insert({nombre:businessName.trim(),tipo:businessType,user_id:user?.id}).select().single();
-    if(!error&&data){ setNegocioId(data.id); await loadData(data.id); setScreen("dashboard"); }
+    if(!error&&data){
+      setNegocioId(data.id);
+      setMisNegocios(prev=>[...prev,data]);
+      localStorage.setItem("procita_negid",data.id);
+      localStorage.setItem("procita_negname",data.nombre);
+      localStorage.setItem("procita_negtype",data.tipo);
+      await loadData(data.id);
+      setScreen("dashboard");
+    }
     setSaving(false);
   };
 
@@ -1118,6 +1143,7 @@ export default function App() {
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
             {user?.user_metadata?.picture && <img src={user.user_metadata.picture} style={{width:28,height:28,borderRadius:"50%",border:"2px solid #e2e8f0"}} alt=""/>}
+            {misNegocios.length>1 && <button onClick={()=>setShowNegPicker(true)} style={{background:"#F0FDF4",border:"1px solid #BBF7D0",color:"#16A34A",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>🏢 Mis negocios</button>}
             <button onClick={handleLogout} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>Salir</button>
             <button onClick={async()=>{ await loadNegocios(); setScreen("directory"); }} style={{background:"#EFF6FF",border:"1px solid #BFDBFE",color:"#1D4ED8",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>👁 Vista cliente</button>
           </div>
@@ -2201,6 +2227,33 @@ export default function App() {
           </div>
         </div>
       )}
-    </div>
+
+      {/* MODAL – Mis Negocios */}
+      {showNegPicker&&(
+        <div style={{position:"fixed",inset:0,background:"#0000006d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:20}} onClick={()=>setShowNegPicker(false)}>
+          <div style={{...cardDark(darkMode),borderRadius:20,padding:"24px 20px",width:"100%",maxWidth:420,animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:16,fontWeight:800,color:darkMode?"#f1f5f9":"#0f172a",marginBottom:4}}>🏢 Mis negocios</div>
+            <div style={{fontSize:11,color:"#64748b",marginBottom:18}}>Selecciona el negocio que quieres administrar</div>
+            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
+              {misNegocios.map(neg=>{
+                const b = BIZ_TYPES.find(x=>x.key===neg.tipo)||BIZ_TYPES[0];
+                const isActive = neg.id===negocioId;
+                return (
+                  <div key={neg.id} onClick={()=>switchNegocio(neg)} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",borderRadius:14,border:`2px solid ${isActive?b.color:"#e2e8f0"}`,background:isActive?`${b.color}10`:darkMode?"#0f172a":"#f8fafc",cursor:"pointer"}}>
+                    <div style={{width:44,height:44,borderRadius:12,background:`${b.color}20`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0,...(neg.foto_url?{backgroundImage:`url(${neg.foto_url})`,backgroundSize:"cover",backgroundPosition:"center"}:{})}}>{!neg.foto_url&&b.icon}</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:14,fontWeight:700,color:darkMode?"#f1f5f9":"#0f172a"}}>{neg.nombre}</div>
+                      <div style={{fontSize:10,color:b.color,fontFamily:"'Space Mono',monospace"}}>{b.label.toUpperCase()}</div>
+                    </div>
+                    {isActive&&<div style={{fontSize:18}}>✅</div>}
+                  </div>
+                );
+              })}
+            </div>
+            <button onClick={()=>{ setShowNegPicker(false); setBusinessName(""); setBusinessType(""); setScreen("setup"); }} style={{width:"100%",background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"12px",borderRadius:12,cursor:"pointer"}}>+ Crear nuevo negocio</button>
+          </div>
+        </div>
+      )}
+      </div>
   );
 }
