@@ -179,8 +179,9 @@ function RoleSelector({user, onSelect, onLogout}) {
       </div>
       <div style={{width:"100%",maxWidth:420,display:"flex",flexDirection:"column",gap:14}}>
         {[
-          {role:"cliente", icon:"📅", title:"Soy cliente",          desc:"Reservar citas en barberías, salones y centros de uñas.",          pill:"VER NEGOCIOS →",   c:"#10B981", bc:"#D1FAE5"},
-          {role:"negocio", icon:"🏪", title:"Soy dueño de negocio", desc:"Registrar mi negocio y gestionar citas, empleados y servicios.",   pill:"MI PANEL →",     c:"#D97706", bc:"#FEF3C7"},
+          {role:"cliente",  icon:"📅", title:"Soy cliente",           desc:"Reservar citas en barberías, salones y centros de uñas.",         pill:"VER NEGOCIOS →", c:"#10B981", bc:"#D1FAE5"},
+          {role:"negocio",  icon:"🏪", title:"Soy dueño de negocio",  desc:"Registrar mi negocio y gestionar citas, empleados y servicios.",  pill:"MI PANEL →",    c:"#D97706", bc:"#FEF3C7"},
+          {role:"empleado", icon:"💈", title:"Soy empleado",           desc:"Ver mi agenda del día, mis citas y manejar mi horario.",          pill:"MI PORTAL →",   c:"#6366F1", bc:"#EEF2FF"},
         ].map(b=>(
           <div key={b.role} onClick={()=>onSelect(b.role)} style={{...card(),padding:"22px 20px",cursor:"pointer",borderLeft:`4px solid ${b.c}`,transition:"all .15s"}}>
             <div style={{fontSize:34,marginBottom:8}}>{b.icon}</div>
@@ -297,6 +298,8 @@ export default function App() {
   const [negocioId,    setNegocioId]    = useState(null);
   const [misNegocios,  setMisNegocios]  = useState([]);
   const [showNegPicker,setShowNegPicker]= useState(false);
+  const [empPortal,    setEmpPortal]    = useState(null); // empleado logueado
+  const [empNegocio,   setEmpNegocio]   = useState(null); // negocio del empleado
   const [negocioFoto,  setNegocioFoto]  = useState(null);
   const [businessName, setBusinessName] = useState("");
   const [businessType, setBusinessType] = useState(null);
@@ -339,8 +342,10 @@ export default function App() {
   const [empRole,  setEmpRole]  = useState("");
   const [empSpec,  setEmpSpec]  = useState("");
   const [empPhone, setEmpPhone] = useState("");
+  const [empPin,   setEmpPin]   = useState("");
   const [showEditEmp,  setShowEditEmp]  = useState(null);
   const [editEmpFoto,  setEditEmpFoto]  = useState("");
+  const [editEmpPin,   setEditEmpPin]   = useState("");
   const [editEmpHorario, setEditEmpHorario] = useState(DEFAULT_HORARIO);
 
   // Modals – service
@@ -481,11 +486,15 @@ export default function App() {
     if(role==="cliente"){
       await loadNegocios();
       setScreen("directory");
+    } else if(role==="empleado"){
+      setScreen("emp_search");
     } else {
       const {data} = await supabase.from("negocios").select("*").eq("user_id",user.id);
+      if(data && data.length>=1){
+        setMisNegocios(data);
+      }
       if(data && data.length===1){
         const neg = data[0];
-        setMisNegocios(data);
         setNegocioId(neg.id); setBusinessName(neg.nombre); setBusinessType(neg.tipo);
         setNegocioFoto(neg.foto_url||null);
         await loadData(neg.id);
@@ -497,7 +506,6 @@ export default function App() {
         setUserRole("negocio");
         setScreen("dashboard");
       } else if(data && data.length>1){
-        setMisNegocios(data);
         setScreen("picker");
       } else {
         setScreen("setup");
@@ -539,16 +547,16 @@ export default function App() {
   const addEmp = async () => {
     if(!empName.trim()) return;
     const ini = empName.trim().split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
-    const {data} = await supabase.from("empleados").insert({negocio_id:negocioId,nombre:empName.trim(),rol:empRole||roles[0]||"Empleado",especialidad:empSpec||"General",telefono:empPhone||null,silla:employees.length+1,status:"disponible",avatar:ini,color:COLORS[Math.floor(Math.random()*COLORS.length)]}).select().single();
+    const {data} = await supabase.from("empleados").insert({negocio_id:negocioId,nombre:empName.trim(),rol:empRole||roles[0]||"Empleado",especialidad:empSpec||"General",telefono:empPhone||null,pin:empPin||null,silla:employees.length+1,status:"disponible",avatar:ini,color:COLORS[Math.floor(Math.random()*COLORS.length)]}).select().single();
     if(data) setEmployees(p=>[...p,data]);
-    setEmpName(""); setEmpRole(""); setEmpSpec(""); setEmpPhone(""); setShowEmp(false);
+    setEmpName(""); setEmpRole(""); setEmpSpec(""); setEmpPhone(""); setEmpPin(""); setShowEmp(false);
   };
   const changeStatus = async (id,status) => { await supabase.from("empleados").update({status}).eq("id",id); setEmployees(p=>p.map(e=>e.id===id?{...e,status}:e)); setSelEmp(null); };
   const removeEmp    = async (id)         => { await supabase.from("empleados").delete().eq("id",id); setEmployees(p=>p.filter(e=>e.id!==id)); setSelEmp(null); };
-  const openEditEmp  = (emp) => { setShowEditEmp(emp); setEditEmpFoto(emp.foto_url||""); setEditEmpHorario(emp.horario||DEFAULT_HORARIO); };
+  const openEditEmp  = (emp) => { setShowEditEmp(emp); setEditEmpFoto(emp.foto_url||""); setEditEmpPin(emp.pin||""); setEditEmpHorario(emp.horario||DEFAULT_HORARIO); };
   const saveEditEmp  = async () => {
     if(!showEditEmp) return;
-    const upd = {foto_url:editEmpFoto||null, horario:editEmpHorario};
+    const upd = {foto_url:editEmpFoto||null, horario:editEmpHorario, pin:editEmpPin||null};
     await supabase.from("empleados").update(upd).eq("id",showEditEmp.id);
     setEmployees(p=>p.map(e=>e.id===showEditEmp.id?{...e,...upd}:e));
     setShowEditEmp(null);
@@ -720,6 +728,219 @@ export default function App() {
       </div>
     );
   }
+  }
+
+  // ── PORTAL EMPLEADO — BUSCAR NEGOCIO ───────────────────────────────────────
+  if(screen==="emp_search") {
+    return (
+      <div style={{...bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"32px 20px",minHeight:"100vh"}}>
+        <style>{CSS}</style>
+        <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+        <div style={{width:"100%",maxWidth:440}}>
+          <div style={{textAlign:"center",marginBottom:28}}>
+            <div style={{fontSize:32,marginBottom:10}}>💈</div>
+            <div style={{fontSize:22,fontWeight:800,color:"#0f172a"}}>Portal del empleado</div>
+            <div style={{fontSize:11,color:"#64748b",marginTop:6,fontFamily:"'Space Mono',monospace"}}>BUSCA TU NEGOCIO Y SELECCIONA TU NOMBRE</div>
+          </div>
+          <div style={{fontSize:11,fontFamily:"'Space Mono',monospace",color:"#64748b",marginBottom:8}}>BUSCA TU NEGOCIO</div>
+          <input
+            placeholder="Nombre de la barbería o salón..."
+            style={inp({marginBottom:14})}
+            onChange={async e=>{
+              const q = e.target.value.trim();
+              if(q.length<2) return;
+              const {data} = await supabase.from("negocios").select("*").ilike("nombre",`%${q}%`).limit(8);
+              if(data) setNegocios(data);
+            }}
+          />
+          <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
+            {negocios.map(neg=>{
+              const b = BIZ_TYPES.find(x=>x.key===neg.tipo)||BIZ_TYPES[0];
+              const isSelected = empNegocio?.id===neg.id;
+              return (
+                <div key={neg.id} onClick={async()=>{ setEmpNegocio(neg); const {data}=await supabase.from("empleados").select("*").eq("negocio_id",neg.id); if(data) setEmployees(data); }} style={{...card(),padding:"14px 16px",cursor:"pointer",border:`2px solid ${isSelected?b.color:"#e2e8f0"}`,background:isSelected?`${b.color}08`:"#fff",display:"flex",alignItems:"center",gap:12}}>
+                  <div style={{fontSize:22}}>{b.icon}</div>
+                  <div>
+                    <div style={{fontSize:14,fontWeight:700,color:"#0f172a"}}>{neg.nombre}</div>
+                    <div style={{fontSize:10,color:b.color,fontFamily:"'Space Mono',monospace"}}>{b.label.toUpperCase()}</div>
+                  </div>
+                  {isSelected&&<div style={{marginLeft:"auto",fontSize:16}}>✅</div>}
+                </div>
+              );
+            })}
+          </div>
+          {empNegocio && employees.length>0 && (
+            <>
+              <div style={{fontSize:11,fontFamily:"'Space Mono',monospace",color:"#64748b",marginBottom:8}}>SELECCIONA TU NOMBRE</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+                {employees.map(emp=>(
+                  <div key={emp.id} onClick={()=>setEmpPortal(empPortal?.id===emp.id?null:emp)} style={{...card(),padding:"12px 16px",cursor:"pointer",border:`2px solid ${empPortal?.id===emp.id?emp.color:"#e2e8f0"}`,background:empPortal?.id===emp.id?`${emp.color}08`:"#fff",display:"flex",alignItems:"center",gap:12}}>
+                    <div style={{width:38,height:38,borderRadius:"50%",background:`${emp.color}20`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:800,color:emp.color,overflow:"hidden"}}>
+                      {emp.foto_url?<img src={emp.foto_url} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>:emp.avatar}
+                    </div>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:700,color:"#0f172a"}}>{emp.nombre}</div>
+                      <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace"}}>{emp.rol}</div>
+                    </div>
+                    {empPortal?.id===emp.id&&<div style={{marginLeft:"auto",fontSize:16}}>✅</div>}
+                  </div>
+                ))}
+              </div>
+              {empPortal&&(
+                <>
+                  <div style={{marginBottom:12}}>
+                    <div style={{fontSize:11,fontFamily:"'Space Mono',monospace",color:"#64748b",marginBottom:8}}>🔐 INGRESA TU PIN</div>
+                    <input
+                      type="tel" maxLength={4}
+                      placeholder="4 dígitos"
+                      value={empPin}
+                      onChange={e=>setEmpPin(e.target.value.replace(/\D/g,"").slice(0,4))}
+                      style={{...inp(),textAlign:"center",fontSize:24,fontWeight:800,letterSpacing:8}}
+                    />
+                    {empPin.length===4 && empPin!==empPortal.pin && (
+                      <div style={{fontSize:11,color:"#EF4444",marginTop:6,fontFamily:"'Space Mono',monospace",textAlign:"center"}}>❌ PIN incorrecto</div>
+                    )}
+                  </div>
+                  <button
+                    onClick={async()=>{ await loadData(empNegocio.id); setNegocioId(empNegocio.id); setScreen("emp_portal"); }}
+                    disabled={empPin!==empPortal.pin}
+                    style={{width:"100%",background:empPin===empPortal.pin?"linear-gradient(135deg,#6366F1,#4F46E5)":"#e2e8f0",border:"none",color:empPin===empPortal.pin?"#fff":"#94a3b8",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:15,padding:14,borderRadius:12,cursor:empPin===empPortal.pin?"pointer":"not-allowed",marginBottom:10}}>
+                    {empPortal.pin ? (empPin===empPortal.pin ? `Entrar como ${empPortal.nombre} →` : "Ingresa tu PIN") : "Este empleado no tiene PIN — contacta al dueño"}
+                  </button>
+                </>
+              )}
+            </>
+          )}
+          <button onClick={handleLogout} style={{width:"100%",background:"transparent",border:"none",color:"#94a3b8",fontFamily:"'Syne',sans-serif",fontSize:12,padding:"8px",cursor:"pointer"}}>← Volver</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── PORTAL EMPLEADO — DASHBOARD ────────────────────────────────────────────
+  if(screen==="emp_portal" && empPortal) {
+    const ac2 = empPortal.color||"#6366F1";
+    const citasHoy = appointments.filter(a=>a.empleado_id===empPortal.id&&a.fecha===todayStr).sort((a,b)=>a.hora>b.hora?1:-1);
+    const citasSemana = appointments.filter(a=>a.empleado_id===empPortal.id&&weekDates.includes(a.fecha));
+    return (
+      <div style={{...bg,minHeight:"100vh"}}>
+        <style>{CSS}</style>
+        <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+        {/* Header */}
+        <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"12px 20px",position:"sticky",top:0,zIndex:10}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div style={{display:"flex",alignItems:"center",gap:12}}>
+              <div style={{width:44,height:44,borderRadius:"50%",background:`${ac2}20`,border:`2px solid ${ac2}40`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:ac2,overflow:"hidden"}}>
+                {empPortal.foto_url?<img src={empPortal.foto_url} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>:empPortal.avatar}
+              </div>
+              <div>
+                <div style={{fontSize:15,fontWeight:800,color:"#0f172a"}}>{empPortal.nombre}</div>
+                <div style={{fontSize:9,color:ac2,fontFamily:"'Space Mono',monospace"}}>{empPortal.rol} · {empNegocio?.nombre}</div>
+              </div>
+            </div>
+            <button onClick={()=>{setEmpPortal(null);setEmpNegocio(null);setScreen("role");}} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>Salir</button>
+          </div>
+        </div>
+        {/* Status */}
+        <div style={{padding:"16px 20px"}}>
+          <div style={{fontSize:11,fontFamily:"'Space Mono',monospace",color:"#64748b",marginBottom:10}}>MI ESTADO ACTUAL</div>
+          <div style={{display:"flex",gap:8,marginBottom:20}}>
+            {["disponible","ocupado","descanso"].map(s=>{
+              const cfg = STATUS_CFG[s];
+              const isActive = empPortal.status===s;
+              return (
+                <button key={s} onClick={async()=>{
+                  await supabase.from("empleados").update({status:s}).eq("id",empPortal.id);
+                  setEmpPortal(p=>({...p,status:s}));
+                }} style={{flex:1,background:isActive?`${cfg.dot}15`:"#f8fafc",border:`2px solid ${isActive?cfg.dot:"#e2e8f0"}`,color:isActive?cfg.dot:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:12,padding:"10px 6px",borderRadius:10,cursor:"pointer"}}>
+                  <div style={{width:8,height:8,borderRadius:"50%",background:isActive?cfg.dot:"#cbd5e1",margin:"0 auto 4px"}}/>
+                  {cfg.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Citas de hoy */}
+          <div style={{fontSize:11,fontFamily:"'Space Mono',monospace",color:"#64748b",marginBottom:10}}>MIS CITAS DE HOY — {citasHoy.length} CITAS</div>
+          {citasHoy.length===0 ? (
+            <div style={{...card(),padding:24,textAlign:"center",color:"#94a3b8",fontSize:12,marginBottom:16}}>Sin citas para hoy 🎉</div>
+          ) : (
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+              {citasHoy.map(a=>{
+                const svc = services.find(s=>s.id===a.servicio_id);
+                const stCfg = APPT_STATUS[a.status]||APPT_STATUS.pendiente;
+                return (
+                  <div key={a.id} style={{...card(),padding:"12px 14px",display:"flex",alignItems:"center",gap:12}}>
+                    <div style={{fontSize:22}}>{svc?.emoji||"📅"}</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:700,color:"#0f172a"}}>{a.cliente_nombre}</div>
+                      <div style={{fontSize:11,color:"#64748b"}}>{a.hora} · {svc?.nombre||"Sin servicio"}</div>
+                    </div>
+                    <div style={{fontSize:10,background:`${stCfg.color}15`,color:stCfg.color,borderRadius:20,padding:"3px 10px",fontFamily:"'Space Mono',monospace"}}>{stCfg.label}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Horario semanal */}
+          <div style={{fontSize:11,fontFamily:"'Space Mono',monospace",color:"#64748b",marginBottom:10}}>MI HORARIO DE TRABAJO</div>
+          <div style={{...card(),padding:16,marginBottom:16}}>
+            {DIAS_SEMANA.map((dia,i)=>{
+              const h = (empPortal.horario||DEFAULT_HORARIO)[dia];
+              return (
+                <div key={dia} style={{display:"flex",alignItems:"center",gap:10,marginBottom:i<6?10:0,padding:"8px 10px",background:h?"#f8fafc":"#FFF5F5",borderRadius:8}}>
+                  <div style={{width:80,fontSize:12,fontWeight:600,color:h?"#334155":"#94a3b8"}}>{DIAS_LABEL[i]}</div>
+                  <div onClick={async()=>{
+                    const newH={...(empPortal.horario||DEFAULT_HORARIO)};
+                    if(newH[dia]) newH[dia]=null; else newH[dia]={inicio:"9:00",fin:"18:00"};
+                    await supabase.from("empleados").update({horario:newH}).eq("id",empPortal.id);
+                    setEmpPortal(p=>({...p,horario:newH}));
+                  }} style={{width:40,height:22,background:h?"#10B981":"#e2e8f0",borderRadius:12,cursor:"pointer",position:"relative",flexShrink:0}}>
+                    <div style={{width:18,height:18,background:"#fff",borderRadius:"50%",position:"absolute",top:2,left:h?20:2,transition:"all .2s"}}/>
+                  </div>
+                  {h ? (
+                    <>
+                      <select value={h.inicio} onChange={async e=>{
+                        const newH={...(empPortal.horario||DEFAULT_HORARIO)}; newH[dia]={...newH[dia],inicio:e.target.value};
+                        await supabase.from("empleados").update({horario:newH}).eq("id",empPortal.id);
+                        setEmpPortal(p=>({...p,horario:newH}));
+                      }} style={{...inp({padding:"4px 8px",fontSize:11,width:"auto"})}}>
+                        {HOURS.map(h=><option key={h} value={h}>{h}</option>)}
+                      </select>
+                      <span style={{fontSize:11,color:"#94a3b8"}}>–</span>
+                      <select value={h.fin} onChange={async e=>{
+                        const newH={...(empPortal.horario||DEFAULT_HORARIO)}; newH[dia]={...newH[dia],fin:e.target.value};
+                        await supabase.from("empleados").update({horario:newH}).eq("id",empPortal.id);
+                        setEmpPortal(p=>({...p,horario:newH}));
+                      }} style={{...inp({padding:"4px 8px",fontSize:11,width:"auto"})}}>
+                        {HOURS.map(h=><option key={h} value={h}>{h}</option>)}
+                      </select>
+                    </>
+                  ) : (
+                    <span style={{fontSize:11,color:"#94a3b8",fontFamily:"'Space Mono',monospace"}}>LIBRE</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Resumen semana */}
+          <div style={{...card(),padding:16,display:"flex",gap:16}}>
+            <div style={{flex:1,textAlign:"center"}}>
+              <div style={{fontSize:24,fontWeight:800,color:ac2}}>{citasSemana.length}</div>
+              <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace"}}>CITAS ESTA SEMANA</div>
+            </div>
+            <div style={{flex:1,textAlign:"center"}}>
+              <div style={{fontSize:24,fontWeight:800,color:"#10B981"}}>${citasSemana.reduce((s,a)=>{const sv=services.find(x=>x.id===a.servicio_id);return s+(sv?.precio||0);},0)}</div>
+              <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace"}}>INGRESOS SEMANA</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if(screen==="setup") {
     const canSave = businessName.trim() && businessType && !saving;
     const bT = BIZ_TYPES.find(t=>t.key===businessType);
@@ -1194,7 +1415,7 @@ export default function App() {
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
             {user?.user_metadata?.picture && <img src={user.user_metadata.picture} style={{width:28,height:28,borderRadius:"50%",border:"2px solid #e2e8f0"}} alt=""/>}
-            {misNegocios.length>1 && <button onClick={()=>setScreen("picker")} style={{background:"#F0FDF4",border:"1px solid #BBF7D0",color:"#16A34A",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>🏢 Mis negocios</button>}
+            <button onClick={()=>setScreen("picker")} style={{background:"#F0FDF4",border:"1px solid #BBF7D0",color:"#16A34A",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>🏢 Negocios</button>
             <button onClick={handleLogout} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>Salir</button>
             <button onClick={async()=>{ await loadNegocios(); setScreen("directory"); }} style={{background:"#EFF6FF",border:"1px solid #BFDBFE",color:"#1D4ED8",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>👁 Vista cliente</button>
           </div>
@@ -1843,6 +2064,10 @@ export default function App() {
               </select>
               <input value={empSpec} onChange={e=>setEmpSpec(e.target.value)} placeholder="Especialidad" style={inp()}/>
               <input value={empPhone} onChange={e=>setEmpPhone(e.target.value)} placeholder="📱 Teléfono personal (opcional)" type="tel" style={inp()}/>
+              <div>
+                <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:5}}>PIN DE ACCESO (4 dígitos) — para que el empleado entre a su portal</div>
+                <input value={empPin} onChange={e=>setEmpPin(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="Ej: 1234" type="tel" maxLength={4} style={inp()}/>
+              </div>
             </div>
             <div style={{display:"flex",gap:10}}>
               <button onClick={()=>setShowEmp(false)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Cancelar</button>
@@ -2074,15 +2299,18 @@ export default function App() {
                 );
               })}
             </div>
-            <div style={{display:"flex",gap:10}}>
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>🔐 PIN DE ACCESO AL PORTAL</div>
+              <div style={{fontSize:11,color:"#94a3b8",marginBottom:8}}>El empleado usará este PIN para entrar a su portal personal</div>
+              <input value={editEmpPin} onChange={e=>setEditEmpPin(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="PIN de 4 dígitos" type="tel" maxLength={4} style={inp()}/>
+              {editEmpPin&&<div style={{fontSize:10,color:"#10B981",marginTop:4,fontFamily:"'Space Mono',monospace"}}>✅ PIN: {editEmpPin} — compártelo con {showEditEmp?.nombre}</div>}
+            </div>
               <button onClick={()=>setShowEditEmp(null)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Cancelar</button>
               <button onClick={saveEditEmp} style={{flex:2,background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Guardar cambios</button>
             </div>
           </div>
         </div>
       )}
-
-      {/* MODAL – QR */}
       {showQR&&(
         <div style={{position:"fixed",inset:0,background:"#0000004d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:20}} onClick={()=>setShowQR(false)}>
           <div style={{...card(),borderRadius:20,padding:"28px 24px",width:"100%",maxWidth:340,textAlign:"center",animation:"slideUp .25s ease"}} onClick={e=>e.stopPropagation()}>
