@@ -7,18 +7,20 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const BIZ_TYPES = [
-  { key:"barberia", label:"Barbería",         icon:"✂️", color:"#E8C547" },
-  { key:"salon",    label:"Salón de Belleza",  icon:"💇", color:"#F472B6" },
-  { key:"unas",     label:"Centro de Uñas",    icon:"💅", color:"#A78BFA" },
-  { key:"mixto",    label:"Centro de Belleza", icon:"✨", color:"#4ECDC4" },
+  { key:"barberia", label:"Barbería",             icon:"✂️",  color:"#E8C547" },
+  { key:"salon",    label:"Salón de Belleza",      icon:"💇",  color:"#F472B6" },
+  { key:"unas",     label:"Centro de Uñas",        icon:"💅",  color:"#A78BFA" },
+  { key:"mixto",    label:"Centro de Belleza",     icon:"✨",  color:"#4ECDC4" },
+  { key:"suplidor", label:"Suplidor / Mercancías", icon:"📦",  color:"#F97316" },
 ];
 const ROLES = {
   barberia:["Barbero","Aprendiz","Encargado"],
   salon:   ["Estilista","Colorista","Asistente","Encargada"],
   unas:    ["Técnica de Uñas","Manicurista","Encargada"],
   mixto:   ["Estilista","Barbero","Técnica de Uñas","Encargado/a"],
+  suplidor:["Vendedor","Repartidor","Encargado","Almacén"],
 };
-const STATION = { barberia:"Silla", salon:"Silla", unas:"Mesa", mixto:"Puesto" };
+const STATION = { barberia:"Silla", salon:"Silla", unas:"Mesa", mixto:"Puesto", suplidor:"Puesto" };
 const COLORS  = ["#E8C547","#4ECDC4","#FF6B6B","#A78BFA","#F97316","#34D399","#F472B6","#60A5FA"];
 const SVC_EMOJI  = ["✂️","⚡","🧔","💈","🎨","💅","💆","🌟","👑","🔥"];
 const PROD_EMOJI = ["🧴","✂️","💈","🪒","💆","💅","🎨","🧼","🌿","⚡","🔥","🌟"];
@@ -496,7 +498,7 @@ export default function App() {
         setScreen("dashboard");
       } else if(data && data.length>1){
         setMisNegocios(data);
-        setShowNegPicker(true);
+        setScreen("picker");
       } else {
         setScreen("setup");
       }
@@ -510,6 +512,9 @@ export default function App() {
     localStorage.setItem("procita_negid",neg.id);
     localStorage.setItem("procita_negname",neg.nombre);
     localStorage.setItem("procita_negtype",neg.tipo);
+    localStorage.setItem("procita_screen","dashboard");
+    localStorage.setItem("procita_role","negocio");
+    setUserRole("negocio");
     setShowNegPicker(false);
     setScreen("dashboard");
   };
@@ -685,13 +690,44 @@ export default function App() {
   if(screen==="role") return <RoleSelector user={user} onSelect={handleRoleSelect} onLogout={handleLogout}/>;
   if(screen==="directory") return <Directory negocios={negocios} user={user} isGuest={isGuest} idioma={idioma} onLogout={handleLogout} onBackToDashboard={(!isGuest && userRole==="negocio" && negocioId)?()=>setScreen("dashboard"):null} onSelect={neg=>{ setSelectedNeg(neg); setBusinessType(neg.tipo); setBusinessName(neg.nombre); setNegocioFoto(neg.foto_url||null); loadData(neg.id).then(()=>{ setNegocioId(neg.id); setClientView("home"); setScreen("client"); }); }}/>;
 
-  // ── SETUP ──────────────────────────────────────────────────────────────────
-  if(screen==="setup") {
+  // ── NEGOCIO PICKER ─────────────────────────────────────────────────────────
+  if(screen==="picker") {
     return (
-      <div style={{...bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"32px 20px"}}>
+      <div style={{...bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"32px 20px",minHeight:"100vh"}}>
         <style>{CSS}</style>
         <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
-        <div style={{marginBottom:32,textAlign:"center"}}>
+        <div style={{marginBottom:28,textAlign:"center"}}>
+          <div style={{fontSize:22,fontWeight:800,color:"#0f172a"}}>🏢 Mis negocios</div>
+          <div style={{fontSize:11,color:"#64748b",marginTop:6,fontFamily:"'Space Mono',monospace"}}>SELECCIONA EL NEGOCIO A ADMINISTRAR</div>
+        </div>
+        <div style={{width:"100%",maxWidth:440,display:"flex",flexDirection:"column",gap:12}}>
+          {misNegocios.map(neg=>{
+            const b = BIZ_TYPES.find(x=>x.key===neg.tipo)||BIZ_TYPES[0];
+            return (
+              <div key={neg.id} onClick={()=>switchNegocio(neg)} style={{...card(),padding:"18px 16px",cursor:"pointer",border:`2px solid ${b.color}40`,display:"flex",alignItems:"center",gap:14,transition:"all .15s"}}>
+                <div style={{width:52,height:52,borderRadius:14,background:`${b.color}20`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,flexShrink:0,...(neg.foto_url?{backgroundImage:`url(${neg.foto_url})`,backgroundSize:"cover",backgroundPosition:"center",backgroundRepeat:"no-repeat"}:{})}}>{!neg.foto_url&&b.icon}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:15,fontWeight:800,color:"#0f172a"}}>{neg.nombre}</div>
+                  <div style={{fontSize:10,color:b.color,fontFamily:"'Space Mono',monospace"}}>{b.label.toUpperCase()}</div>
+                </div>
+                <div style={{fontSize:18,color:"#94a3b8"}}>→</div>
+              </div>
+            );
+          })}
+          <button onClick={()=>{ setBusinessName(""); setBusinessType(null); setScreen("setup"); }} style={{width:"100%",background:"linear-gradient(135deg,#E8C547,#f0a500)",border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,padding:14,borderRadius:12,cursor:"pointer",marginTop:4}}>+ Crear nuevo negocio</button>
+          <button onClick={handleLogout} style={{width:"100%",background:"transparent",border:"none",color:"#94a3b8",fontFamily:"'Syne',sans-serif",fontSize:12,padding:"8px",cursor:"pointer"}}>← Cerrar sesión</button>
+        </div>
+      </div>
+    );
+  }
+  if(screen==="setup") {
+    const canSave = businessName.trim() && businessType && !saving;
+    const bT = BIZ_TYPES.find(t=>t.key===businessType);
+    return (
+      <div style={{...bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"32px 20px",minHeight:"100vh"}}>
+        <style>{CSS}</style>
+        <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+        <div style={{marginBottom:28,textAlign:"center"}}>
           <div style={{width:64,height:64,background:"linear-gradient(135deg,#E8C547,#f0a500)",borderRadius:18,display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,margin:"0 auto 14px"}}>🏪</div>
           <div style={{fontSize:22,fontWeight:800,color:"#0f172a"}}>Registra tu negocio</div>
           <div style={{fontSize:11,color:"#64748b",marginTop:6,fontFamily:"'Space Mono',monospace"}}>APARECERÁ EN EL DIRECTORIO DE PROCITA</div>
@@ -705,17 +741,32 @@ export default function App() {
             <div style={{fontSize:11,fontFamily:"'Space Mono',monospace",color:"#64748b",marginBottom:8}}>TIPO DE NEGOCIO</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
               {BIZ_TYPES.map(t=>(
-                <div key={t.key} onClick={()=>setBusinessType(t.key)} style={{...card(),padding:"16px 14px",cursor:"pointer",borderLeft:`3px solid ${businessType===t.key?t.color:"transparent"}`,background:businessType===t.key?`${t.color}08`:"#fff"}}>
+                <div key={t.key} onClick={()=>setBusinessType(t.key)} style={{...card(),padding:"16px 14px",cursor:"pointer",border:`2px solid ${businessType===t.key?t.color:"#e2e8f0"}`,background:businessType===t.key?`${t.color}08`:"#fff",transition:"all .15s"}}>
                   <div style={{fontSize:26,marginBottom:6}}>{t.icon}</div>
                   <div style={{fontSize:13,fontWeight:700,color:businessType===t.key?t.color:"#334155"}}>{t.label}</div>
                 </div>
               ))}
             </div>
           </div>
-          <button onClick={saveBusiness} disabled={!businessName.trim()||!businessType||saving} style={{width:"100%",background:businessName.trim()&&businessType?"linear-gradient(135deg,#E8C547,#f0a500)":"#e2e8f0",border:"none",color:businessName.trim()&&businessType?"#0f172a":"#94a3b8",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:15,padding:14,borderRadius:12,cursor:"pointer"}}>
-            {saving?"Guardando...":"Publicar mi negocio →"}
+
+          {/* Preview antes de guardar */}
+          {canSave && (
+            <div style={{...card(),padding:16,marginBottom:16,border:`2px solid ${bT?.color}40`,background:`${bT?.color}06`}}>
+              <div style={{fontSize:10,fontFamily:"'Space Mono',monospace",color:"#64748b",marginBottom:10}}>VISTA PREVIA — ASÍ APARECERÁ EN EL DIRECTORIO</div>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <div style={{width:48,height:48,borderRadius:14,background:`${bT?.color}20`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>{bT?.icon}</div>
+                <div>
+                  <div style={{fontSize:15,fontWeight:800,color:"#0f172a"}}>{businessName}</div>
+                  <div style={{fontSize:10,color:bT?.color,fontFamily:"'Space Mono',monospace"}}>{bT?.label.toUpperCase()}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <button onClick={saveBusiness} disabled={!canSave} style={{width:"100%",background:canSave?"linear-gradient(135deg,#E8C547,#f0a500)":"#e2e8f0",border:"none",color:canSave?"#0f172a":"#94a3b8",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:15,padding:14,borderRadius:12,cursor:canSave?"pointer":"not-allowed",marginBottom:10}}>
+            {saving?"Guardando...":"💾 Guardar y crear negocio"}
           </button>
-          <button onClick={handleLogout} style={{width:"100%",background:"transparent",border:"none",color:"#94a3b8",fontFamily:"'Syne',sans-serif",fontSize:12,padding:"10px",cursor:"pointer",marginTop:6}}>{T[idioma]?.volver||"← Volver"}</button>
+          <button onClick={()=>{ if(misNegocios.length>0){ setShowNegPicker(true); setScreen("dashboard"); } else { handleLogout(); } }} style={{width:"100%",background:"transparent",border:"none",color:"#94a3b8",fontFamily:"'Syne',sans-serif",fontSize:12,padding:"10px",cursor:"pointer"}}>← Volver</button>
         </div>
       </div>
     );
@@ -1143,7 +1194,7 @@ export default function App() {
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
             {user?.user_metadata?.picture && <img src={user.user_metadata.picture} style={{width:28,height:28,borderRadius:"50%",border:"2px solid #e2e8f0"}} alt=""/>}
-            {misNegocios.length>1 && <button onClick={()=>setShowNegPicker(true)} style={{background:"#F0FDF4",border:"1px solid #BBF7D0",color:"#16A34A",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>🏢 Mis negocios</button>}
+            {misNegocios.length>1 && <button onClick={()=>setScreen("picker")} style={{background:"#F0FDF4",border:"1px solid #BBF7D0",color:"#16A34A",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>🏢 Mis negocios</button>}
             <button onClick={handleLogout} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>Salir</button>
             <button onClick={async()=>{ await loadNegocios(); setScreen("directory"); }} style={{background:"#EFF6FF",border:"1px solid #BFDBFE",color:"#1D4ED8",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>👁 Vista cliente</button>
           </div>
