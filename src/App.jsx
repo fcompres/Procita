@@ -2305,6 +2305,7 @@ export default function App() {
               <input value={editEmpPin} onChange={e=>setEditEmpPin(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="PIN de 4 dígitos" type="tel" maxLength={4} style={inp()}/>
               {editEmpPin&&<div style={{fontSize:10,color:"#10B981",marginTop:4,fontFamily:"'Space Mono',monospace"}}>✅ PIN: {editEmpPin} — compártelo con {showEditEmp?.nombre}</div>}
             </div>
+            <div style={{display:"flex",gap:10}}>
               <button onClick={()=>setShowEditEmp(null)} style={{flex:1,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Cancelar</button>
               <button onClick={saveEditEmp} style={{flex:2,background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,padding:"11px",borderRadius:10,cursor:"pointer"}}>Guardar cambios</button>
             </div>
