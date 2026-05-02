@@ -728,7 +728,6 @@ export default function App() {
       </div>
     );
   }
-  }
 
   // ── PORTAL EMPLEADO — BUSCAR NEGOCIO ───────────────────────────────────────
   if(screen==="emp_search") {
