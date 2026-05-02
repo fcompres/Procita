@@ -1221,6 +1221,7 @@ export default function App() {
       })()}
 
       {/* ── EMPLEADOS ── */}
+      {activeTab==="empleados" && (
         <div style={{padding:"18px 20px"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:8}}>
             <div style={{display:"flex",gap:6,overflowX:"auto"}}>
@@ -1247,7 +1248,9 @@ export default function App() {
                     <div style={{fontFamily:"'Space Mono',monospace",fontSize:9,color:"#94a3b8",background:"#f1f5f9",borderRadius:6,padding:"2px 6px"}}>{sw.toUpperCase()} {emp.silla}</div>
                   </div>
                   <div style={{display:"flex",justifyContent:"center",marginBottom:10}}>
-                    <div style={{width:52,height:52,borderRadius:"50%",background:`${emp.color}20`,border:`2px solid ${emp.color}40`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:emp.color}}>{emp.avatar}</div>
+                    <div style={{width:52,height:52,borderRadius:"50%",background:`${emp.color}20`,border:`2px solid ${emp.color}40`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:emp.color,overflow:"hidden"}}>
+                      {emp.foto_url ? <img src={emp.foto_url} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/> : emp.avatar}
+                    </div>
                   </div>
                   <div style={{textAlign:"center"}}>
                     <div style={{fontSize:13,fontWeight:700,color:"#0f172a",marginBottom:2}}>{emp.nombre}</div>
@@ -1264,6 +1267,7 @@ export default function App() {
                         </button>
                       ))}
                       <button onClick={e=>{e.stopPropagation();removeEmp(emp.id);}} style={{width:"100%",background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:10,padding:"5px",borderRadius:8,cursor:"pointer",marginTop:2}}>Eliminar</button>
+                      <button onClick={e=>{e.stopPropagation();openEditEmp(emp);}} style={{width:"100%",background:`${ac}15`,border:`1px solid ${ac}40`,color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:10,padding:"5px",borderRadius:8,cursor:"pointer",marginTop:4}}>📷 Foto y horario</button>
                     </div>
                   )}
                 </div>
