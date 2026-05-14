@@ -80,7 +80,7 @@ const showLocalNotif = (title, body) => {
   }
 };
 const waMsg = (phone, neg, fecha, hora) => `https://wa.me/${phone.replace(/\D/g,"")}?text=${encodeURIComponent(`Hola, tu cita en ${neg} está confirmada para el ${fecha} a las ${hora}.`)}`;
-const waMsgDueno = (phone, neg, cliente, svc, fecha, hora) => `https://wa.me/${phone.replace(/\D/g,"")}?text=${encodeURIComponent(`🔔 Nueva cita en ${neg}!\n👤 Cliente: ${cliente}\n✂️ Servicio: ${svc}\n📅 Fecha: ${fecha}\n🕐 Hora: ${hora}`)}`;
+const waMsgDueno = (phone, neg, cliente, svc, fecha, hora, emp, tel) => `https://wa.me/${phone.replace(/\D/g,"")}?text=${encodeURIComponent(`🔔 *Nueva cita en ${neg}*\n\n👤 Cliente: ${cliente}${tel?`\n📱 Tel: ${tel}`:""}\n✂️ Servicio: ${svc}${emp?`\n💈 Con: ${emp}`:""}\n📅 Fecha: ${fecha}\n🕐 Hora: ${hora}\n\n_Enviado desde ProCita_`)}`;
 const addToCalendar = (neg, svc, fecha, hora) => { const dt=fecha.replace(/-/g,""); const h=hora.replace(":",""); const end=`${dt}T${h}00`; const start=`${dt}T${h}00`; return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Cita en ${neg}`)}&details=${encodeURIComponent(`Servicio: ${svc}`)}&dates=${start}/${end}`; };
 const bzColor = (tipo) => BIZ_TYPES.find(t=>t.key===tipo)?.color || "#E8C547";
 const bzIcon  = (tipo) => BIZ_TYPES.find(t=>t.key===tipo)?.icon  || "✂️";
@@ -647,7 +647,7 @@ export default function App() {
     // Auto WhatsApp to business owner
     const negWANum = selectedNeg?.whatsapp || negWA;
     if(negWANum) {
-      const waUrl = waMsgDueno(negWANum, negNombre, bkName, bkSvc?.nombre||"Servicio", bkDate, bkTime);
+      const waUrl = waMsgDueno(negWANum, negNombre, bkName, bkSvc?.nombre||"Servicio", bkDate, bkTime, bkEmp?.nombre||null, bkPhone||null);
       window.open(waUrl, "_blank");
     }
     setClientView("confirm");
