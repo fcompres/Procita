@@ -11,6 +11,7 @@ const BIZ_TYPES = [
   { key:"salon",    label:"Salón de Belleza",      icon:"💇",  color:"#F472B6" },
   { key:"unas",     label:"Centro de Uñas",        icon:"💅",  color:"#A78BFA" },
   { key:"mixto",    label:"Centro de Belleza",     icon:"✨",  color:"#4ECDC4" },
+  { key:"spa",      label:"Spa / Masajes",         icon:"💆",  color:"#6EE7B7" },
   { key:"suplidor", label:"Suplidor / Mercancías", icon:"📦",  color:"#F97316" },
 ];
 const ROLES = {
@@ -18,9 +19,10 @@ const ROLES = {
   salon:   ["Estilista","Colorista","Asistente","Encargada"],
   unas:    ["Técnica de Uñas","Manicurista","Encargada"],
   mixto:   ["Estilista","Barbero","Técnica de Uñas","Encargado/a"],
+  spa:     ["Masajista","Terapeuta","Recepcionista","Encargado/a"],
   suplidor:["Vendedor","Repartidor","Encargado","Almacén"],
 };
-const STATION = { barberia:"Silla", salon:"Silla", unas:"Mesa", mixto:"Puesto", suplidor:"Puesto" };
+const STATION = { barberia:"Silla", salon:"Silla", unas:"Mesa", mixto:"Puesto", spa:"Camilla", suplidor:"Puesto" };
 const COLORS  = ["#E8C547","#4ECDC4","#FF6B6B","#A78BFA","#F97316","#34D399","#F472B6","#60A5FA"];
 const SVC_EMOJI  = ["✂️","⚡","🧔","💈","🎨","💅","💆","🌟","👑","🔥"];
 const PROD_EMOJI = ["🧴","✂️","💈","🪒","💆","💅","🎨","🧼","🌿","⚡","🔥","🌟"];
@@ -39,7 +41,10 @@ const weekDates = Array.from({length:7},(_,i)=>{ const d=new Date(today); d.setD
 const inp  = (x={}) => ({ background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:10, padding:"11px 14px", color:"#1e293b", fontFamily:"'Syne',sans-serif", fontSize:13, outline:"none", width:"100%", boxSizing:"border-box", ...x });
 const card = (x={}) => ({ background:"#fff", borderRadius:16, boxShadow:"0 2px 12px #0000000d", border:"1px solid #e8edf5", ...x });
 const bg   = { minHeight:"100vh", background:"#f1f5f9", color:"#1e293b", fontFamily:"'Syne',sans-serif" };
-const CSS  = `@keyframes spin{to{transform:rotate(360deg)}}@keyframes slideUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}.dark{background:#0f172a!important;color:#f1f5f9!important}`;
+const CSS  = `@keyframes spin{to{transform:rotate(360deg)}}@keyframes slideUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}.dark{background:#0f172a!important;color:#f1f5f9!important}
+body{margin:0;padding:0;background:#cbd5e1;display:flex;justify-content:center;}
+#root{width:100%;max-width:480px;min-height:100vh;background:#f1f5f9;box-shadow:0 0 40px #0000001a;position:relative;overflow-x:hidden;}
+`;
 const inpDark  = (dark,x={}) => ({ background:dark?"#1e293b":"#f8fafc", border:`1px solid ${dark?"#334155":"#e2e8f0"}`, borderRadius:10, padding:"11px 14px", color:dark?"#f1f5f9":"#1e293b", fontFamily:"'Syne',sans-serif", fontSize:13, outline:"none", width:"100%", boxSizing:"border-box", ...x });
 const cardDark = (dark,x={}) => ({ background:dark?"#1e293b":"#fff", borderRadius:16, boxShadow:dark?"0 2px 12px #00000040":"0 2px 12px #0000000d", border:`1px solid ${dark?"#334155":"#e8edf5"}`, ...x });
 const bgDark   = (dark) => ({ minHeight:"100vh", background:dark?"#0f172a":"#f1f5f9", color:dark?"#f1f5f9":"#1e293b", fontFamily:"'Syne',sans-serif" });
