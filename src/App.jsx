@@ -224,7 +224,6 @@ function Directory({negocios, user, isGuest, idioma="es", onSelect, onLogout, on
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           {isGuest && <div style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:20,padding:"4px 10px",fontSize:9,color:"#92400E",fontFamily:"'Space Mono',monospace"}}>INVITADO</div>}
-          <button onClick={()=>{ const v=idioma==="es"?"en":"es"; setIdioma(v); localStorage.setItem("procita_lang",v); }} style={{background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#475569",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"5px 8px",borderRadius:8,cursor:"pointer"}}>{idioma==="es"?"EN":"ES"}</button>
           {!isGuest && user?.user_metadata?.picture && <img src={user.user_metadata.picture} style={{width:30,height:30,borderRadius:"50%",border:"2px solid #e2e8f0"}} alt=""/>}
           {onBackToDashboard && <button onClick={onBackToDashboard} style={{background:"#FEF3C7",border:"1px solid #FDE68A",color:"#92400E",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>🏪 Mi panel</button>}
           <button onClick={onLogout} style={{background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#64748b",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>Salir</button>
@@ -1419,13 +1418,13 @@ export default function App() {
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
             {user?.user_metadata?.picture && <img src={user.user_metadata.picture} style={{width:28,height:28,borderRadius:"50%",border:"2px solid #e2e8f0"}} alt=""/>}
-            <button onClick={()=>setScreen("picker")} style={{background:"#F0FDF4",border:"1px solid #BBF7D0",color:"#16A34A",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>🏢 {idioma==="en"?"My Businesses":"Negocios"}</button>
-            <button onClick={handleLogout} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>{idioma==="en"?"Logout":"Salir"}</button>
-            <button onClick={async()=>{ await loadNegocios(); setScreen("directory"); }} style={{background:"#EFF6FF",border:"1px solid #BFDBFE",color:"#1D4ED8",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>👁 {idioma==="en"?"Client view":"Vista cliente"}</button>
+            <button onClick={()=>setScreen("picker")} style={{background:"#F0FDF4",border:"1px solid #BBF7D0",color:"#16A34A",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>🏢 Negocios</button>
+            <button onClick={handleLogout} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>Salir</button>
+            <button onClick={async()=>{ await loadNegocios(); setScreen("directory"); }} style={{background:"#EFF6FF",border:"1px solid #BFDBFE",color:"#1D4ED8",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>👁 Vista cliente</button>
           </div>
         </div>
         <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:2}}>
-          {[{l:`${counts.disponible} ${idioma==="en"?"Available":"Libres"}`,c:"#10B981"},{l:`${counts.ocupado} ${idioma==="en"?"Busy":"Ocupados"}`,c:"#F59E0B"},{l:`${counts.descanso} ${idioma==="en"?"Break":"Descanso"}`,c:"#8B5CF6"},{l:`${appointments.filter(a=>a.fecha===todayStr).length} ${idioma==="en"?"Appts today":"Citas hoy"}`,c:"#3B82F6"}].map((p,i)=>(
+          {[{l:`${counts.disponible} Libres`,c:"#10B981"},{l:`${counts.ocupado} Ocupados`,c:"#F59E0B"},{l:`${counts.descanso} Descanso`,c:"#8B5CF6"},{l:`${appointments.filter(a=>a.fecha===todayStr).length} Citas hoy`,c:"#3B82F6"}].map((p,i)=>(
             <div key={i} style={{background:`${p.c}12`,border:`1px solid ${p.c}30`,borderRadius:20,padding:"4px 10px",fontSize:10,color:p.c,fontWeight:600,whiteSpace:"nowrap"}}>{p.l}</div>
           ))}
           {newAlert>0 && <div onClick={()=>setNewAlert(0)} style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:20,padding:"4px 10px",fontSize:10,color:"#DC2626",fontWeight:700,whiteSpace:"nowrap",cursor:"pointer",animation:"pulse 1.5s infinite"}}>🔔 {newAlert} nueva{newAlert>1?"s":""} cita{newAlert>1?"s":""}</div>}
@@ -1434,7 +1433,7 @@ export default function App() {
 
       {/* Tabs */}
       <div style={{background:darkMode?"#1e293b":"#fff",display:"flex",borderBottom:`1px solid ${darkMode?"#334155":"#e2e8f0"}`,padding:"0 20px",overflowX:"auto"}}>
-        {[{k:"estadisticas",l:idioma==="en"?"Stats":"Stats",i:"📊"},{k:"empleados",l:idioma==="en"?`${sw}s`:`${sw}s`,i:"👥"},{k:"agenda",l:idioma==="en"?"Schedule":"Agenda",i:"📅"},{k:"servicios",l:idioma==="en"?"Services":"Servicios",i:"📋"},{k:"productos",l:idioma==="en"?"Products":"Productos",i:"🛍️"},{k:"galeria",l:idioma==="en"?"Gallery":"Galería",i:"📸"},{k:"espera",l:idioma==="en"?"Waitlist":"Espera",i:"⏳"},{k:"bloqueos",l:idioma==="en"?"Blocks":"Bloqueos",i:"🚫"},{k:"fidelizacion",l:idioma==="en"?"Loyalty":"Fidelización",i:"🎁"},{k:"config",l:"Config",i:"⚙️"}].map(t=>(
+        {[{k:"estadisticas",l:"Stats",i:"📊"},{k:"empleados",l:`${sw}s`,i:"👥"},{k:"agenda",l:"Agenda",i:"📅"},{k:"servicios",l:"Servicios",i:"📋"},{k:"productos",l:"Productos",i:"🛍️"},{k:"galeria",l:"Galería",i:"📸"},{k:"espera",l:"Espera",i:"⏳"},{k:"bloqueos",l:"Bloqueos",i:"🚫"},{k:"fidelizacion",l:"Fidelización",i:"🎁"},{k:"config",l:"Config",i:"⚙️"}].map(t=>(
           <button key={t.k} onClick={()=>setActiveTab(t.k)} style={{background:"transparent",border:"none",borderBottom:activeTab===t.k?`3px solid ${ac}`:"3px solid transparent",color:activeTab===t.k?ac:darkMode?"#94a3b8":"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:12,padding:"12px 14px 10px",cursor:"pointer",marginBottom:-1,whiteSpace:"nowrap"}}>{t.i} {t.l}</button>
         ))}
       </div>
@@ -1529,7 +1528,7 @@ export default function App() {
             <div style={{display:"flex",gap:6,overflowX:"auto"}}>
               {["todos","disponible","ocupado","descanso"].map(f=>{
                 const C = {todos:"#334155",disponible:"#10B981",ocupado:"#F59E0B",descanso:"#8B5CF6"}[f];
-                const L = idioma==="en"?{todos:"All",disponible:"Available",ocupado:"Busy",descanso:"Break"}[f]:{todos:"Todos",disponible:"Libres",ocupado:"Ocupados",descanso:"Descanso"}[f];
+                const L = {todos:"Todos",disponible:"Libres",ocupado:"Ocupados",descanso:"Descanso"}[f];
                 return (
                   <button key={f} onClick={()=>setFilterSt(f)} style={{background:filterSt===f?`${C}15`:"#fff",border:`1px solid ${filterSt===f?C:"#e2e8f0"}`,color:filterSt===f?C:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:10,padding:"5px 10px",borderRadius:8,cursor:"pointer",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:4}}>
                     <span style={{background:filterSt===f?C:"#e2e8f0",color:filterSt===f?"#fff":"#64748b",borderRadius:5,padding:"0 5px",fontSize:9,fontFamily:"'Space Mono',monospace"}}>{counts[f]}</span>{L}
@@ -1537,7 +1536,7 @@ export default function App() {
                 );
               })}
             </div>
-            <button onClick={()=>setShowEmp(true)} style={{background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 14px",borderRadius:10,cursor:"pointer",flexShrink:0}}>{idioma==="en"?"+ Add":"+ Agregar"}</button>
+            <button onClick={()=>setShowEmp(true)} style={{background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 14px",borderRadius:10,cursor:"pointer",flexShrink:0}}>+ Agregar</button>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
             {visible.map(emp=>{
@@ -1822,7 +1821,7 @@ export default function App() {
               <div style={{fontSize:15,fontWeight:800,color:"#0f172a"}}>Galería de trabajos</div>
               <div style={{fontSize:11,color:"#64748b",marginTop:2}}>Muestra tus mejores trabajos a los clientes</div>
             </div>
-            <button onClick={()=>setShowGal(true)} style={{background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 14px",borderRadius:10,cursor:"pointer"}}>{idioma==="en"?"+ Add photo":"+ Agregar foto"}</button>
+            <button onClick={()=>setShowGal(true)} style={{background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 14px",borderRadius:10,cursor:"pointer"}}>+ Agregar foto</button>
           </div>
           {galeria.length===0 && <div style={{textAlign:"center",padding:"40px 0",color:"#94a3b8"}}><div style={{fontSize:40,marginBottom:10}}>📸</div><div style={{fontFamily:"'Space Mono',monospace",fontSize:11}}>SIN FOTOS AÚN</div></div>}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:12}}>
@@ -1878,7 +1877,7 @@ export default function App() {
               <div style={{fontSize:15,fontWeight:800,color:"#0f172a"}}>🚫 Horas no disponibles</div>
               <div style={{fontSize:11,color:"#64748b",marginTop:2}}>Bloquea horarios para almuerzo, reservados o sin cita</div>
             </div>
-            <button onClick={()=>setShowBloqueo(true)} style={{background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 14px",borderRadius:10,cursor:"pointer"}}>{idioma==="en"?"+ Add block":"+ Agregar bloqueo"}</button>
+            <button onClick={()=>setShowBloqueo(true)} style={{background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 14px",borderRadius:10,cursor:"pointer"}}>+ Agregar bloqueo</button>
           </div>
           {bloqueos.length===0 && (
             <div style={{textAlign:"center",padding:"40px 0",color:"#94a3b8"}}>
@@ -1964,7 +1963,7 @@ export default function App() {
                   <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>Los clientes recibirán notificación automática aquí cuando reserven</div>
                 </div>
                 <button onClick={async()=>{ await supabase.from("negocios").update({direccion:negDireccion,whatsapp:negWA}).eq("id",negocioId); setConfigSaved(true); setTimeout(()=>setConfigSaved(false),3000); }} style={{background:configSaved?"#10B981":`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:configSaved?"#fff":"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:13,padding:"12px",borderRadius:10,cursor:"pointer",transition:"all .3s"}}>
-                  {configSaved?(idioma==="en"?"✅ Saved!":"✅ ¡Guardado!"):(idioma==="en"?"💾 Save changes":"💾 Guardar cambios")}
+                  {configSaved?"✅ ¡Guardado!":"💾 Guardar cambios"}
                 </button>
               </div>
             </div>
@@ -1997,7 +1996,7 @@ export default function App() {
                             </>
                           ):(
                             <>
-                              <div style={{flex:1,fontSize:11,color:"#DC2626",fontFamily:"'Space Mono',monospace"}}>{idioma==="en"?"CLOSED":"CERRADO"}</div>
+                              <div style={{flex:1,fontSize:11,color:"#DC2626",fontFamily:"'Space Mono',monospace"}}>CERRADO</div>
                               <button onClick={()=>{ const n={...hor,[d]:{abre:"9:00",cierra:"18:00"}}; setNegHorario(n); supabase.from("negocios").update({horario_negocio:n}).eq("id",negocioId); }} style={{background:"#D1FAE5",border:"1px solid #6EE7B7",color:"#065F46",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:10,fontFamily:"'Syne',sans-serif",fontWeight:600}}>+ Abrir</button>
                             </>
                           )}
@@ -2020,10 +2019,10 @@ export default function App() {
               </div>
             </div>
 
-            {/* Apariencia e idioma */}
+            {/* Apariencia */}
             <div style={{background:darkMode?"#1e293b":"#fff",borderRadius:16,border:`1px solid ${darkMode?"#334155":"#e8edf5"}`,padding:16}}>
-              <div style={{fontSize:12,fontWeight:700,color:darkMode?"#f1f5f9":"#334155",marginBottom:12}}>🎨 Apariencia e idioma</div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <div style={{fontSize:12,fontWeight:700,color:darkMode?"#f1f5f9":"#334155",marginBottom:12}}>🎨 Apariencia</div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div>
                   <div style={{fontSize:13,fontWeight:600,color:darkMode?"#f1f5f9":"#334155"}}>🌙 Modo oscuro</div>
                   <div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>Cambia el tema de la app</div>
@@ -2032,21 +2031,13 @@ export default function App() {
                   <div style={{width:20,height:20,background:"#fff",borderRadius:"50%",position:"absolute",top:2,left:darkMode?22:2,transition:"all .3s",boxShadow:"0 1px 4px #00000030"}}/>
                 </div>
               </div>
-              <div>
-                <div style={{fontSize:13,fontWeight:600,color:darkMode?"#f1f5f9":"#334155",marginBottom:8}}>🌐 Idioma de la app</div>
-                <div style={{display:"flex",gap:8}}>
-                  {[{k:"es",l:"🇪🇸 Español"},{k:"en",l:"🇺🇸 English"}].map(lng=>(
-                    <button key={lng.k} onClick={()=>{ setIdioma(lng.k); localStorage.setItem("procita_lang",lng.k); }} style={{flex:1,background:idioma===lng.k?ac:darkMode?"#0f172a":"#f1f5f9",border:`1px solid ${idioma===lng.k?ac:darkMode?"#334155":"#e2e8f0"}`,color:idioma===lng.k?"#0f172a":darkMode?"#94a3b8":"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:13,padding:"10px",borderRadius:10,cursor:"pointer"}}>{lng.l}</button>
-                  ))}
-                </div>
-              </div>
             </div>
 
             {/* Zona de peligro */}
             <div style={{background:darkMode?"#2d1515":"#fff",borderRadius:16,border:`1px solid ${darkMode?"#5c2626":"#e8edf5"}`,padding:16}}>
-              <div style={{fontSize:12,fontWeight:700,color:"#DC2626",marginBottom:4}}>🗑️ {idioma==="en"?"Danger zone":"Zona de peligro"}</div>
-              <div style={{fontSize:11,color:"#64748b",marginBottom:12}}>{idioma==="en"?"This action is irreversible. The business and all its data will be deleted.":"Esta acción es irreversible. Se eliminará el negocio y todos sus datos."}</div>
-              <button onClick={deleteNegocio} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:13,padding:"10px 20px",borderRadius:10,cursor:"pointer"}}>🗑️ {idioma==="en"?"Delete my business":"Eliminar mi negocio"}</button>
+              <div style={{fontSize:12,fontWeight:700,color:"#DC2626",marginBottom:4}}>🗑️ Zona de peligro</div>
+              <div style={{fontSize:11,color:"#64748b",marginBottom:12}}>Esta acción es irreversible. Se eliminará el negocio y todos sus datos.</div>
+              <button onClick={deleteNegocio} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:13,padding:"10px 20px",borderRadius:10,cursor:"pointer"}}>🗑️ Eliminar mi negocio</button>
             </div>
           </div>
         </div>
