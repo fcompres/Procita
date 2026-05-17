@@ -1420,7 +1420,7 @@ export default function App() {
             {user?.user_metadata?.picture && <img src={user.user_metadata.picture} style={{width:28,height:28,borderRadius:"50%",border:"2px solid #e2e8f0"}} alt=""/>}
             <button onClick={()=>setScreen("picker")} style={{background:"#F0FDF4",border:"1px solid #BBF7D0",color:"#16A34A",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>🏢 Negocios</button>
             <button onClick={handleLogout} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>Salir</button>
-            <button onClick={async()=>{ await loadNegocios(); setScreen("directory"); }} style={{background:"#EFF6FF",border:"1px solid #BFDBFE",color:"#1D4ED8",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>👁 Vista cliente</button>
+            <button onClick={()=>{ const neg = {id:negocioId,nombre:businessName,tipo:businessType,foto_url:negocioFoto}; setSelectedNeg(neg); loadData(negocioId).then(()=>{ setClientView("home"); setScreen("client"); }); }} style={{background:"#EFF6FF",border:"1px solid #BFDBFE",color:"#1D4ED8",fontFamily:"'Space Mono',monospace",fontSize:9,padding:"6px 10px",borderRadius:8,cursor:"pointer"}}>👁 Vista cliente</button>
           </div>
         </div>
         <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:2}}>
@@ -1433,7 +1433,7 @@ export default function App() {
 
       {/* Tabs */}
       <div style={{background:darkMode?"#1e293b":"#fff",display:"flex",borderBottom:`1px solid ${darkMode?"#334155":"#e2e8f0"}`,padding:"0 20px",overflowX:"auto"}}>
-        {[{k:"estadisticas",l:"Stats",i:"📊"},{k:"empleados",l:`${sw}s`,i:"👥"},{k:"agenda",l:"Agenda",i:"📅"},{k:"servicios",l:"Servicios",i:"📋"},{k:"productos",l:"Productos",i:"🛍️"},{k:"galeria",l:"Galería",i:"📸"},{k:"espera",l:"Espera",i:"⏳"},{k:"bloqueos",l:"Bloqueos",i:"🚫"},{k:"fidelizacion",l:"Fidelización",i:"🎁"},{k:"config",l:"Config",i:"⚙️"}].map(t=>(
+        {[{k:"estadisticas",l:"Estadísticas",i:"📊"},{k:"empleados",l:`${sw}s`,i:"👥"},{k:"agenda",l:"Agenda",i:"📅"},{k:"servicios",l:"Servicios",i:"📋"},{k:"productos",l:"Productos",i:"🛍️"},{k:"galeria",l:"Galería",i:"📸"},{k:"espera",l:"Espera",i:"⏳"},{k:"bloqueos",l:"Bloqueos",i:"🚫"},{k:"fidelizacion",l:"Fidelización",i:"🎁"},{k:"config",l:"Config",i:"⚙️"}].map(t=>(
           <button key={t.k} onClick={()=>setActiveTab(t.k)} style={{background:"transparent",border:"none",borderBottom:activeTab===t.k?`3px solid ${ac}`:"3px solid transparent",color:activeTab===t.k?ac:darkMode?"#94a3b8":"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:12,padding:"12px 14px 10px",cursor:"pointer",marginBottom:-1,whiteSpace:"nowrap"}}>{t.i} {t.l}</button>
         ))}
       </div>
