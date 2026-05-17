@@ -1537,7 +1537,7 @@ export default function App() {
                 );
               })}
             </div>
-            <button onClick={()=>setShowEmp(true)} style={{background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 14px",borderRadius:10,cursor:"pointer",flexShrink:0}}{idioma==="en"?"+ Add":"+ Agregar"}</button>
+            <button onClick={()=>setShowEmp(true)} style={{background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 14px",borderRadius:10,cursor:"pointer",flexShrink:0}}>{idioma==="en"?"+ Add":"+ Agregar"}</button>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
             {visible.map(emp=>{
@@ -1822,7 +1822,7 @@ export default function App() {
               <div style={{fontSize:15,fontWeight:800,color:"#0f172a"}}>Galería de trabajos</div>
               <div style={{fontSize:11,color:"#64748b",marginTop:2}}>Muestra tus mejores trabajos a los clientes</div>
             </div>
-            <button onClick={()=>setShowGal(true)} style={{background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 14px",borderRadius:10,cursor:"pointer"}}{idioma==="en"?"+ Add photo":"+ Agregar foto"}</button>
+            <button onClick={()=>setShowGal(true)} style={{background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 14px",borderRadius:10,cursor:"pointer"}}>{idioma==="en"?"+ Add photo":"+ Agregar foto"}</button>
           </div>
           {galeria.length===0 && <div style={{textAlign:"center",padding:"40px 0",color:"#94a3b8"}}><div style={{fontSize:40,marginBottom:10}}>📸</div><div style={{fontFamily:"'Space Mono',monospace",fontSize:11}}>SIN FOTOS AÚN</div></div>}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:12}}>
@@ -1878,7 +1878,7 @@ export default function App() {
               <div style={{fontSize:15,fontWeight:800,color:"#0f172a"}}>🚫 Horas no disponibles</div>
               <div style={{fontSize:11,color:"#64748b",marginTop:2}}>Bloquea horarios para almuerzo, reservados o sin cita</div>
             </div>
-            <button onClick={()=>setShowBloqueo(true)} style={{background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 14px",borderRadius:10,cursor:"pointer"}}{idioma==="en"?"+ Add block":"+ Agregar bloqueo"}</button>
+            <button onClick={()=>setShowBloqueo(true)} style={{background:`linear-gradient(135deg,${ac},${ac}cc)`,border:"none",color:"#0f172a",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:11,padding:"8px 14px",borderRadius:10,cursor:"pointer"}}>{idioma==="en"?"+ Add block":"+ Agregar bloqueo"}</button>
           </div>
           {bloqueos.length===0 && (
             <div style={{textAlign:"center",padding:"40px 0",color:"#94a3b8"}}>
