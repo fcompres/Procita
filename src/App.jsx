@@ -834,8 +834,23 @@ export default function App() {
         <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"12px 20px",position:"sticky",top:0,zIndex:10}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
             <div style={{display:"flex",alignItems:"center",gap:12}}>
-              <div style={{width:44,height:44,borderRadius:"50%",background:`${ac2}20`,border:`2px solid ${ac2}40`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:ac2,overflow:"hidden"}}>
-                {empPortal.foto_url?<img src={empPortal.foto_url} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>:empPortal.avatar}
+              <div style={{position:"relative"}}>
+                <div style={{width:44,height:44,borderRadius:"50%",background:`${ac2}20`,border:`2px solid ${ac2}40`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:ac2,overflow:"hidden"}}>
+                  {empPortal.foto_url?<img src={empPortal.foto_url} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>:empPortal.avatar}
+                </div>
+                <label style={{position:"absolute",bottom:-2,right:-2,width:18,height:18,background:ac2,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:9,boxShadow:"0 1px 4px #00000030"}}>
+                  📷
+                  <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{
+                    const f=e.target.files[0];
+                    if(f){
+                      const url=await uploadToStorage(f,"empleados");
+                      if(url){
+                        await supabase.from("empleados").update({foto_url:url}).eq("id",empPortal.id);
+                        setEmpPortal(p=>({...p,foto_url:url}));
+                      }
+                    }
+                  }}/>
+                </label>
               </div>
               <div>
                 <div style={{fontSize:15,fontWeight:800,color:"#0f172a"}}>{empPortal.nombre}</div>
