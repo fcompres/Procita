@@ -93,7 +93,6 @@ const APP_URL = typeof window !== "undefined" ? window.location.origin : "https:
 
 const T = {
   es:{reservar:"Reservar cita",miscitas:"Ver mis citas",servicios:"Servicios disponibles",sinservicios:"AÚN SIN SERVICIOS",galeria:"Galería de trabajos",resenas:"Reseñas",dejarResena:"+ Dejar reseña",listaEspera:"¿No hay hora disponible?",unirme:"Unirme a la lista de espera",confirmar:"Confirmar cita ✓",nueva:"Nueva cita",masNegocios:"Más negocios",elegir:"Elige tu negocio",buscar:"Buscar negocio por nombre…",todos:"Todos",reservarBtn:"Reservar →",cualquier:"Cualquier disponible",selServicio:"Selecciona un servicio",selProfesional:"Elige un profesional",fechaHora:"Fecha y hora",confirmarCita:"Confirma tu cita",tuNombre:"Tu nombre completo *",tuTel:"Teléfono / WhatsApp (opcional)",volver:"← Volver",continuar:"Continuar →",citaConfirmada:"¡Cita confirmada!",productos:"Productos disponibles",sinProductos:"SIN PRODUCTOS AÚN",manda:"PAGO EN EL LOCAL",misCitasTitulo:"Mis citas",sinCitas:"No tienes citas registradas",reagendar:"Reagendar",cancelar:"Cancelar",abierto:"Abierto ahora",cerrado:"Cerrado ahora",horario:"Horario"},
-  en:{reservar:"Book appointment",miscitas:"My appointments",servicios:"Available services",sinservicios:"NO SERVICES YET",galeria:"Work gallery",resenas:"Reviews",dejarResena:"+ Leave review",listaEspera:"No availability?",unirme:"Join waitlist",confirmar:"Confirm ✓",nueva:"New appointment",masNegocios:"More businesses",elegir:"Choose a business",buscar:"Search business by name…",todos:"All",reservarBtn:"Book →",cualquier:"Any available",selServicio:"Select a service",selProfesional:"Choose a professional",fechaHora:"Date & time",confirmarCita:"Confirm your appointment",tuNombre:"Your full name *",tuTel:"Phone / WhatsApp (optional)",volver:"← Back",continuar:"Continue →",citaConfirmada:"Appointment confirmed!",productos:"Products available",sinProductos:"NO PRODUCTS YET",manda:"PAY AT THE LOCATION",misCitasTitulo:"My appointments",sinCitas:"No appointments found",reagendar:"Reschedule",cancelar:"Cancel",abierto:"Open now",cerrado:"Closed now",horario:"Schedule"},
 };
 
 const DK = (dark) => dark ? {bg:"#0f172a",card:"#1e293b",border:"#334155",text:"#f1f5f9",sub:"#94a3b8",input:{background:"#1e293b",border:"1px solid #334155",color:"#f1f5f9"}} : {bg:"#f1f5f9",card:"#fff",border:"#e8edf5",text:"#1e293b",sub:"#64748b",input:{background:"#f8fafc",border:"1px solid #e2e8f0",color:"#1e293b"}};
@@ -321,7 +320,9 @@ export default function App() {
   const [darkMode,     setDarkMode]     = useState(()=>localStorage.getItem("procita_dark")==="1");
   const [negHorario,   setNegHorario]   = useState(null);
   const [maxCitasHora, setMaxCitasHora] = useState(1);
-  const [idioma,       setIdioma]       = useState(()=>localStorage.getItem("procita_lang")||"es");
+  const [idioma, setIdioma] = useState("es");
+  // Siempre forzar español hasta que la traducción completa esté lista
+  useEffect(()=>{ localStorage.removeItem("procita_lang"); },[]);
   const [fidelActiva,  setFidelActiva]  = useState(false);
   const [citasPremio,  setCitasPremio]  = useState(5);
 
