@@ -369,6 +369,9 @@ export default function App() {
   const [showSvc,  setShowSvc]  = useState(false);
   const [editSvc,  setEditSvc]  = useState(null);
   const [svcF,     setSvcF]     = useState({name:"",cat:"",price:"",dur:"",emoji:"✂️",desc:"",foto:""});
+  const [uploadingSvc,  setUploadingSvc]  = useState(false);
+  const [uploadingProd, setUploadingProd] = useState(false);
+  const [uploadingEmp,  setUploadingEmp]  = useState(false);
 
   // Modals – product
   const [showProd, setShowProd] = useState(false);
@@ -2174,8 +2177,8 @@ export default function App() {
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   {svcF.foto && <img src={svcF.foto} style={{width:60,height:60,borderRadius:10,objectFit:"cover",border:"1px solid #e2e8f0"}} alt=""/>}
                   <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600}}>
-                    📷 {svcF.foto?"Cambiar":"Subir foto"}
-                    <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{ const f=e.target.files[0]; if(f){ const url=await uploadToStorage(f,"servicios"); if(url)setSvcF(x=>({...x,foto:url})); } }}/>
+                    {uploadingSvc ? "⏳ Subiendo..." : (svcF.foto?"📷 Cambiar foto":"📷 Subir foto")}
+                    <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{ const f=e.target.files[0]; if(f){ setUploadingSvc(true); const url=await uploadToStorage(f,"servicios"); setUploadingSvc(false); if(url)setSvcF(x=>({...x,foto:url})); } }}/>
                   </label>
                   {svcF.foto && <button onClick={()=>setSvcF(x=>({...x,foto:""}))} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11}}>✕</button>}
                 </div>
@@ -2213,8 +2216,8 @@ export default function App() {
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   {prodF.foto && <img src={prodF.foto} style={{width:60,height:60,borderRadius:10,objectFit:"cover",border:"1px solid #e2e8f0"}} alt=""/>}
                   <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600}}>
-                    📷 {prodF.foto?"Cambiar":"Subir foto"}
-                    <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{ const f=e.target.files[0]; if(f){ const url=await uploadToStorage(f,"productos"); if(url)setProdF(x=>({...x,foto:url})); } }}/>
+                    {uploadingProd ? "⏳ Subiendo..." : (prodF.foto?"📷 Cambiar foto":"📷 Subir foto")}
+                    <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{ const f=e.target.files[0]; if(f){ setUploadingProd(true); const url=await uploadToStorage(f,"productos"); setUploadingProd(false); if(url)setProdF(x=>({...x,foto:url})); } }}/>
                   </label>
                   {prodF.foto && <button onClick={()=>setProdF(x=>({...x,foto:""}))} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11}}>✕</button>}
                 </div>
@@ -2349,9 +2352,9 @@ export default function App() {
                   {editEmpFoto?<img src={editEmpFoto} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>:showEditEmp.avatar}
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600}}>
-                    📷 {editEmpFoto?"Cambiar foto":"Subir foto"}
-                    <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(f){const url=await uploadToStorage(f,"empleados");if(url)setEditEmpFoto(url);}}}/>
+                  <label style={{background:uploadingEmp?"#FEF9C3":"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,color:uploadingEmp?"#92400E":"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600}}>
+                    {uploadingEmp?"⏳ Subiendo...":(editEmpFoto?"📷 Cambiar foto":"📷 Subir foto")}
+                    <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(f){setUploadingEmp(true);const url=await uploadToStorage(f,"empleados");setUploadingEmp(false);if(url)setEditEmpFoto(url);}}}/>
                   </label>
                   {editEmpFoto&&<button onClick={()=>setEditEmpFoto("")} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11,fontFamily:"'Syne',sans-serif"}}>✕ Quitar foto</button>}
                 </div>
@@ -2469,7 +2472,7 @@ export default function App() {
                 <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>FOTO (OPCIONAL)</div>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   {svcF.foto&&<img src={svcF.foto} style={{width:60,height:60,borderRadius:10,objectFit:"cover",border:"1px solid #e2e8f0"}} alt=""/>}
-                  <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600}}>📷 {svcF.foto?"Cambiar":"Subir foto"}<input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(f){const url=await uploadToStorage(f,"servicios");if(url)setSvcF(x=>({...x,foto:url}));}}}/></label>
+                  <label style={{background:uploadingSvc?"#FEF9C3":"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,color:uploadingSvc?"#92400E":"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600}}>{uploadingSvc?"⏳ Subiendo...":svcF.foto?"📷 Cambiar foto":"📷 Subir foto"}<input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(f){setUploadingSvc(true);const url=await uploadToStorage(f,"servicios");setUploadingSvc(false);if(url)setSvcF(x=>({...x,foto:url}));}}}/></label>
                   {svcF.foto&&<button onClick={()=>setSvcF(x=>({...x,foto:""}))} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11}}>✕</button>}
                 </div>
               </div>
@@ -2503,7 +2506,7 @@ export default function App() {
                 <div style={{fontSize:10,color:"#64748b",fontFamily:"'Space Mono',monospace",marginBottom:6}}>FOTO (OPCIONAL)</div>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   {prodF.foto&&<img src={prodF.foto} style={{width:60,height:60,borderRadius:10,objectFit:"cover",border:"1px solid #e2e8f0"}} alt=""/>}
-                  <label style={{background:"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,color:"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600}}>📷 {prodF.foto?"Cambiar":"Subir foto"}<input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(f){const url=await uploadToStorage(f,"productos");if(url)setProdF(x=>({...x,foto:url}));}}}/></label>
+                  <label style={{background:uploadingProd?"#FEF9C3":"#f1f5f9",border:"1px dashed #cbd5e1",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,color:uploadingProd?"#92400E":"#64748b",fontFamily:"'Syne',sans-serif",fontWeight:600}}>{uploadingProd?"⏳ Subiendo...":prodF.foto?"📷 Cambiar foto":"📷 Subir foto"}<input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{const f=e.target.files[0];if(f){setUploadingProd(true);const url=await uploadToStorage(f,"productos");setUploadingProd(false);if(url)setProdF(x=>({...x,foto:url}));}}}/></label>
                   {prodF.foto&&<button onClick={()=>setProdF(x=>({...x,foto:""}))} style={{background:"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11}}>✕</button>}
                 </div>
               </div>
