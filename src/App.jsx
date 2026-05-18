@@ -7,22 +7,33 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const BIZ_TYPES = [
-  { key:"barberia", label:"Barbería",             icon:"✂️",  color:"#E8C547" },
-  { key:"salon",    label:"Salón de Belleza",      icon:"💇",  color:"#F472B6" },
-  { key:"unas",     label:"Centro de Uñas",        icon:"💅",  color:"#A78BFA" },
-  { key:"mixto",    label:"Centro de Belleza",     icon:"✨",  color:"#4ECDC4" },
-  { key:"spa",      label:"Spa / Masajes",         icon:"💆",  color:"#6EE7B7" },
-  { key:"suplidor", label:"Suplidor / Mercancías", icon:"📦",  color:"#F97316" },
+  { key:"barberia",       label:"Barbería",                icon:"✂️",  color:"#E8C547" },
+  { key:"salon",          label:"Salón de Belleza",        icon:"💇",  color:"#F472B6" },
+  { key:"unas",           label:"Centro de Uñas",          icon:"💅",  color:"#A78BFA" },
+  { key:"mixto",          label:"Centro de Belleza",       icon:"✨",  color:"#4ECDC4" },
+  { key:"spa",            label:"Centro de Masajes / Spa", icon:"💆",  color:"#6EE7B7" },
+  { key:"terapias",       label:"Centro de Terapias",      icon:"🧘",  color:"#86EFAC" },
+  { key:"domicilio",      label:"Servicios a Domicilio",   icon:"🏠",  color:"#7DD3FC" },
+  { key:"independiente",  label:"Independiente",           icon:"🧑‍💼", color:"#FDA4AF" },
+  { key:"suplidor",       label:"Suplidor / Mercancías",   icon:"📦",  color:"#F97316" },
 ];
 const ROLES = {
-  barberia:["Barbero","Aprendiz","Encargado"],
-  salon:   ["Estilista","Colorista","Asistente","Encargada"],
-  unas:    ["Técnica de Uñas","Manicurista","Encargada"],
-  mixto:   ["Estilista","Barbero","Técnica de Uñas","Encargado/a"],
-  spa:     ["Masajista","Terapeuta","Recepcionista","Encargado/a"],
-  suplidor:["Vendedor","Repartidor","Encargado","Almacén"],
+  barberia:     ["Barbero","Aprendiz","Encargado"],
+  salon:        ["Estilista","Colorista","Asistente","Encargada"],
+  unas:         ["Técnica de Uñas","Manicurista","Encargada"],
+  mixto:        ["Estilista","Barbero","Técnica de Uñas","Encargado/a"],
+  spa:          ["Masajista","Terapeuta","Recepcionista","Encargado/a"],
+  terapias:     ["Terapeuta","Quiropráctico","Recepcionista","Encargado/a"],
+  domicilio:    ["Masajista","Terapeuta","Estilista","Técnica de Uñas"],
+  independiente:["Profesional","Asistente"],
+  suplidor:     ["Vendedor","Repartidor","Encargado","Almacén"],
 };
-const STATION = { barberia:"Silla", salon:"Silla", unas:"Mesa", mixto:"Puesto", spa:"Camilla", suplidor:"Puesto" };
+const STATION = { barberia:"Silla", salon:"Silla", unas:"Mesa", mixto:"Puesto", spa:"Camilla", terapias:"Camilla", domicilio:"Puesto", independiente:"Puesto", suplidor:"Puesto" };
+
+// Tipos donde el horario es individual (cada colaborador lo maneja)
+const HORARIO_INDIVIDUAL = ["barberia","domicilio","independiente"];
+// Tipos donde el dueño asigna horario base pero puede haber excepciones
+const HORARIO_NEGOCIO = ["salon","unas","mixto","spa","terapias","suplidor"];
 const COLORS  = ["#E8C547","#4ECDC4","#FF6B6B","#A78BFA","#F97316","#34D399","#F472B6","#60A5FA"];
 const SVC_EMOJI  = ["✂️","⚡","🧔","💈","🎨","💅","💆","🌟","👑","🔥"];
 const PROD_EMOJI = ["🧴","✂️","💈","🪒","💆","💅","🎨","🧼","🌿","⚡","🔥","🌟"];
@@ -348,6 +359,7 @@ export default function App() {
   const [empSpec,  setEmpSpec]  = useState("");
   const [empPhone, setEmpPhone] = useState("");
   const [empPin,   setEmpPin]   = useState("");
+  const [pinError, setPinError] = useState(false);
   const [showEditEmp,  setShowEditEmp]  = useState(null);
   const [editEmpFoto,  setEditEmpFoto]  = useState("");
   const [editEmpPin,   setEditEmpPin]   = useState("");
@@ -795,21 +807,32 @@ export default function App() {
                   <div style={{marginBottom:12}}>
                     <div style={{fontSize:11,fontFamily:"'Space Mono',monospace",color:"#64748b",marginBottom:8}}>🔐 INGRESA TU PIN</div>
                     <input
-                      type="tel" maxLength={4}
-                      placeholder="4 dígitos"
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={4}
+                      placeholder="••••"
                       value={empPin}
-                      onChange={e=>setEmpPin(e.target.value.replace(/\D/g,"").slice(0,4))}
-                      style={{...inp(),textAlign:"center",fontSize:24,fontWeight:800,letterSpacing:8}}
+                      onChange={e=>{ setEmpPin(e.target.value.replace(/\D/g,"").slice(0,4)); setPinError(false); }}
+                      style={{...inp(),textAlign:"center",fontSize:28,fontWeight:800,letterSpacing:12}}
                     />
-                    {empPin.length===4 && empPin!==empPortal.pin && (
+                    {pinError && (
                       <div style={{fontSize:11,color:"#EF4444",marginTop:6,fontFamily:"'Space Mono',monospace",textAlign:"center"}}>❌ PIN incorrecto</div>
+                    )}
+                    {!empPortal.pin && (
+                      <div style={{fontSize:11,color:"#F59E0B",marginTop:6,fontFamily:"'Space Mono',monospace",textAlign:"center"}}>⚠️ Este colaborador no tiene PIN — contacta al dueño</div>
                     )}
                   </div>
                   <button
-                    onClick={async()=>{ await loadData(empNegocio.id); setNegocioId(empNegocio.id); setScreen("emp_portal"); }}
-                    disabled={empPin!==empPortal.pin}
-                    style={{width:"100%",background:empPin===empPortal.pin?"linear-gradient(135deg,#6366F1,#4F46E5)":"#e2e8f0",border:"none",color:empPin===empPortal.pin?"#fff":"#94a3b8",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:15,padding:14,borderRadius:12,cursor:empPin===empPortal.pin?"pointer":"not-allowed",marginBottom:10}}>
-                    {empPortal.pin ? (empPin===empPortal.pin ? `Entrar como ${empPortal.nombre} →` : "Ingresa tu PIN") : "Este empleado no tiene PIN — contacta al dueño"}
+                    onClick={async()=>{
+                      if(!empPortal.pin){ setPinError(true); return; }
+                      if(empPin!==empPortal.pin){ setPinError(true); return; }
+                      await loadData(empNegocio.id);
+                      setNegocioId(empNegocio.id);
+                      setScreen("emp_portal");
+                    }}
+                    disabled={empPin.length!==4 || !empPortal.pin}
+                    style={{width:"100%",background:empPin.length===4&&empPortal.pin?"linear-gradient(135deg,#6366F1,#4F46E5)":"#e2e8f0",border:"none",color:empPin.length===4&&empPortal.pin?"#fff":"#94a3b8",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:15,padding:14,borderRadius:12,cursor:empPin.length===4&&empPortal.pin?"pointer":"not-allowed",marginBottom:10}}>
+                    Entrar como {empPortal.nombre} →
                   </button>
                 </>
               )}
@@ -903,45 +926,97 @@ export default function App() {
           )}
 
           {/* Horario semanal */}
-          <div style={{fontSize:11,fontFamily:"'Space Mono',monospace",color:"#64748b",marginBottom:10}}>MI HORARIO DE TRABAJO</div>
-          <div style={{...card(),padding:16,marginBottom:16}}>
-            {DIAS_SEMANA.map((dia,i)=>{
-              const h = (empPortal.horario||DEFAULT_HORARIO)[dia];
-              return (
-                <div key={dia} style={{display:"flex",alignItems:"center",gap:10,marginBottom:i<6?10:0,padding:"8px 10px",background:h?"#f8fafc":"#FFF5F5",borderRadius:8}}>
-                  <div style={{width:80,fontSize:12,fontWeight:600,color:h?"#334155":"#94a3b8"}}>{DIAS_LABEL[i]}</div>
-                  <div onClick={async()=>{
-                    const newH={...(empPortal.horario||DEFAULT_HORARIO)};
-                    if(newH[dia]) newH[dia]=null; else newH[dia]={inicio:"9:00",fin:"18:00"};
-                    await supabase.from("empleados").update({horario:newH}).eq("id",empPortal.id);
-                    setEmpPortal(p=>({...p,horario:newH}));
-                  }} style={{width:40,height:22,background:h?"#10B981":"#e2e8f0",borderRadius:12,cursor:"pointer",position:"relative",flexShrink:0}}>
-                    <div style={{width:18,height:18,background:"#fff",borderRadius:"50%",position:"absolute",top:2,left:h?20:2,transition:"all .2s"}}/>
+          <div style={{fontSize:11,fontFamily:"'Space Mono',monospace",color:"#64748b",marginBottom:10}}>
+            {HORARIO_INDIVIDUAL.includes(empNegocio?.tipo) ? "MI HORARIO DE TRABAJO" : "MI HORARIO (BASE DEL NEGOCIO + MIS EXCEPCIONES)"}
+          </div>
+          <div style={{background:"#fff",borderRadius:16,border:"1px solid #e2e8f0",padding:16,marginBottom:16}}>
+            {HORARIO_INDIVIDUAL.includes(empNegocio?.tipo) ? (
+              // Horario completamente libre
+              DIAS_SEMANA.map((dia,i)=>{
+                const h = (empPortal.horario||DEFAULT_HORARIO)[dia];
+                return (
+                  <div key={dia} style={{display:"flex",alignItems:"center",gap:10,marginBottom:i<6?10:0,padding:"8px 10px",background:h?"#f8fafc":"#FFF5F5",borderRadius:8}}>
+                    <div style={{width:80,fontSize:12,fontWeight:600,color:h?"#334155":"#94a3b8"}}>{DIAS_LABEL[i]}</div>
+                    <div onClick={async()=>{
+                      const newH={...(empPortal.horario||DEFAULT_HORARIO)};
+                      if(newH[dia]) newH[dia]=null; else newH[dia]={inicio:"9:00",fin:"18:00"};
+                      await supabase.from("empleados").update({horario:newH}).eq("id",empPortal.id);
+                      setEmpPortal(p=>({...p,horario:newH}));
+                    }} style={{width:40,height:22,background:h?"#10B981":"#e2e8f0",borderRadius:12,cursor:"pointer",position:"relative",flexShrink:0}}>
+                      <div style={{width:18,height:18,background:"#fff",borderRadius:"50%",position:"absolute",top:2,left:h?20:2,transition:"all .2s"}}/>
+                    </div>
+                    {h ? (
+                      <>
+                        <select value={h.inicio} onChange={async e=>{
+                          const newH={...(empPortal.horario||DEFAULT_HORARIO)}; newH[dia]={...newH[dia],inicio:e.target.value};
+                          await supabase.from("empleados").update({horario:newH}).eq("id",empPortal.id);
+                          setEmpPortal(p=>({...p,horario:newH}));
+                        }} style={inp({padding:"4px 8px",fontSize:11,width:"auto"})}>{HOURS.map(h=><option key={h} value={h}>{h}</option>)}</select>
+                        <span style={{fontSize:11,color:"#94a3b8"}}>–</span>
+                        <select value={h.fin} onChange={async e=>{
+                          const newH={...(empPortal.horario||DEFAULT_HORARIO)}; newH[dia]={...newH[dia],fin:e.target.value};
+                          await supabase.from("empleados").update({horario:newH}).eq("id",empPortal.id);
+                          setEmpPortal(p=>({...p,horario:newH}));
+                        }} style={inp({padding:"4px 8px",fontSize:11,width:"auto"})}>{HOURS.map(h=><option key={h} value={h}>{h}</option>)}</select>
+                      </>
+                    ) : (
+                      <span style={{fontSize:11,color:"#94a3b8",fontFamily:"'Space Mono',monospace"}}>LIBRE</span>
+                    )}
                   </div>
-                  {h ? (
-                    <>
-                      <select value={h.inicio} onChange={async e=>{
-                        const newH={...(empPortal.horario||DEFAULT_HORARIO)}; newH[dia]={...newH[dia],inicio:e.target.value};
-                        await supabase.from("empleados").update({horario:newH}).eq("id",empPortal.id);
-                        setEmpPortal(p=>({...p,horario:newH}));
-                      }} style={{...inp({padding:"4px 8px",fontSize:11,width:"auto"})}}>
-                        {HOURS.map(h=><option key={h} value={h}>{h}</option>)}
-                      </select>
-                      <span style={{fontSize:11,color:"#94a3b8"}}>–</span>
-                      <select value={h.fin} onChange={async e=>{
-                        const newH={...(empPortal.horario||DEFAULT_HORARIO)}; newH[dia]={...newH[dia],fin:e.target.value};
-                        await supabase.from("empleados").update({horario:newH}).eq("id",empPortal.id);
-                        setEmpPortal(p=>({...p,horario:newH}));
-                      }} style={{...inp({padding:"4px 8px",fontSize:11,width:"auto"})}}>
-                        {HOURS.map(h=><option key={h} value={h}>{h}</option>)}
-                      </select>
-                    </>
-                  ) : (
-                    <span style={{fontSize:11,color:"#94a3b8",fontFamily:"'Space Mono',monospace"}}>LIBRE</span>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              // Horario base del negocio + excepciones del colaborador
+              DIAS_SEMANA.map((dia,i)=>{
+                const base = (negHorario||DEFAULT_HORARIO)[dia];
+                const exc  = empPortal.horario?.[dia];
+                const h    = exc !== undefined ? exc : base;
+                const hasException = empPortal.horario && dia in empPortal.horario;
+                return (
+                  <div key={dia} style={{marginBottom:i<6?10:0}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:hasException?"#EFF6FF":h?"#f8fafc":"#FFF5F5",borderRadius:8,border:hasException?"1px solid #BFDBFE":"1px solid transparent"}}>
+                      <div style={{width:80,fontSize:12,fontWeight:600,color:h?"#334155":"#94a3b8"}}>{DIAS_LABEL[i]}</div>
+                      {base ? (
+                        <div style={{flex:1,fontSize:11,color:"#64748b"}}>
+                          {h ? `${h.inicio} – ${h.fin}` : "LIBRE"} 
+                          {!hasException && <span style={{fontSize:9,color:"#94a3b8",marginLeft:6}}>(base negocio)</span>}
+                          {hasException && <span style={{fontSize:9,color:"#3B82F6",marginLeft:6}}>(tu excepción)</span>}
+                        </div>
+                      ) : (
+                        <div style={{flex:1,fontSize:11,color:"#DC2626",fontFamily:"'Space Mono',monospace"}}>NEGOCIO CERRADO</div>
+                      )}
+                      {base && (
+                        <button onClick={async()=>{
+                          const newH={...(empPortal.horario||{})};
+                          if(hasException){ delete newH[dia]; } 
+                          else { newH[dia] = h ? null : {inicio:"9:00",fin:"18:00"}; }
+                          await supabase.from("empleados").update({horario:newH}).eq("id",empPortal.id);
+                          setEmpPortal(p=>({...p,horario:newH}));
+                        }} style={{fontSize:9,background:hasException?"#DBEAFE":"#f1f5f9",border:`1px solid ${hasException?"#93C5FD":"#e2e8f0"}`,color:hasException?"#1D4ED8":"#64748b",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontFamily:"'Space Mono',monospace",flexShrink:0}}>
+                          {hasException?"✕ Quitar excepción":"+ Excepción"}
+                        </button>
+                      )}
+                    </div>
+                    {hasException && h && (
+                      <div style={{display:"flex",gap:8,padding:"6px 10px",background:"#EFF6FF",borderRadius:"0 0 8px 8px",alignItems:"center"}}>
+                        <span style={{fontSize:11,color:"#64748b"}}>Mi horario:</span>
+                        <select value={h.inicio} onChange={async e=>{
+                          const newH={...(empPortal.horario||{})}; newH[dia]={...newH[dia],inicio:e.target.value};
+                          await supabase.from("empleados").update({horario:newH}).eq("id",empPortal.id);
+                          setEmpPortal(p=>({...p,horario:newH}));
+                        }} style={inp({padding:"3px 6px",fontSize:11,width:"auto"})}>{HOURS.map(h=><option key={h} value={h}>{h}</option>)}</select>
+                        <span style={{fontSize:11}}>–</span>
+                        <select value={h.fin} onChange={async e=>{
+                          const newH={...(empPortal.horario||{})}; newH[dia]={...newH[dia],fin:e.target.value};
+                          await supabase.from("empleados").update({horario:newH}).eq("id",empPortal.id);
+                          setEmpPortal(p=>({...p,horario:newH}));
+                        }} style={inp({padding:"3px 6px",fontSize:11,width:"auto"})}>{HOURS.map(h=><option key={h} value={h}>{h}</option>)}</select>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
 
           {/* Resumen semana */}
