@@ -61,12 +61,19 @@ const cardDark = (dark,x={}) => ({ background:dark?"#1e293b":"#fff", borderRadiu
 const bgDark   = (dark) => ({ minHeight:"100vh", background:dark?"#0f172a":"#f1f5f9", color:dark?"#f1f5f9":"#1e293b", fontFamily:"'Syne',sans-serif" });
 const f2b  = (file) => new Promise((res,rej)=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsDataURL(file); });
 const uploadToStorage = async (file, folder="general") => {
-  const ext  = file.name.split(".").pop();
-  const path = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-  const { error } = await supabase.storage.from("FOTOS").upload(path, file, { upsert:true, contentType:file.type });
-  if(error){ console.error("Storage error:", error); return null; }
-  const { data } = supabase.storage.from("FOTOS").getPublicUrl(path);
-  return data.publicUrl;
+  try {
+    const ext  = file.name.split(".").pop();
+    const path = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const { data:upData, error } = await supabase.storage.from("FOTOS").upload(path, file, { upsert:true, contentType:file.type });
+    if(error){ console.error("Storage upload error:", error.message, error); alert("Error subiendo foto: " + error.message); return null; }
+    const { data } = supabase.storage.from("FOTOS").getPublicUrl(path);
+    console.log("Foto subida:", data.publicUrl);
+    return data.publicUrl;
+  } catch(e) {
+    console.error("uploadToStorage exception:", e);
+    alert("Error inesperado: " + e.message);
+    return null;
+  }
 };
 
 // ── PUSH NOTIFICATIONS ────────────────────────────────────────────────────────
