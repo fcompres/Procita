@@ -64,9 +64,9 @@ const uploadToStorage = async (file, folder="general") => {
   try {
     const ext  = file.name.split(".").pop();
     const path = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-    const { data:upData, error } = await supabase.storage.from("FOTOS").upload(path, file, { upsert:true, contentType:file.type });
+    const { data:upData, error } = await supabase.storage.from("Fotos").upload(path, file, { upsert:true, contentType:file.type });
     if(error){ console.error("Storage upload error:", error.message, error); alert("Error subiendo foto: " + error.message); return null; }
-    const { data } = supabase.storage.from("FOTOS").getPublicUrl(path);
+    const { data } = supabase.storage.from("Fotos").getPublicUrl(path);
     console.log("Foto subida:", data.publicUrl);
     return data.publicUrl;
   } catch(e) {
